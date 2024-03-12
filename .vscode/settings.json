@@ -1,0 +1,6 @@
+{
+    "editor.formatOnSave": true,
+    "prettier.configPath": ".prettierrc",
+    "python.defaultInterpreterPath": "${workspaceFolder}/env/bin/python",
+    "remote.localPortHost": "allInterfaces"
+}

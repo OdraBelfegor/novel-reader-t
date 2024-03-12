@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "skipLibCheck": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "paths": {
+      "@common/*": [
+        "../common/*"
+      ]
+    }
+  },
+  "include": [
+    "vite.config.ts"
+  ]
+}

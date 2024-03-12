@@ -1,0 +1,30 @@
+{
+  "name": "web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "copy": "cp -r dist/* ../server/public ",
+    "copy:destroy": "find ../server/public -type f -delete  && cp -r dist/* ../server/public "
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^3.0.2",
+    "@tsconfig/svelte": "^5.0.2",
+    "autoprefixer": "^10.4.18",
+    "postcss-nesting": "^12.0.4",
+    "scroll-into-view-if-needed": "^3.1.0",
+    "socket.io": "^4.7.4",
+    "socket.io-client": "^4.7.4",
+    "svelte": "^4.2.11",
+    "svelte-check": "^3.6.4",
+    "svelte-routing": "^2.12.0",
+    "tslib": "^2.6.2",
+    "typescript": "^5.2.2",
+    "vite": "^5.1.4",
+    "vite-plugin-socket-io": "^1.0.2"
+  }
+}
