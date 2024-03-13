@@ -2,5 +2,13 @@
     "editor.formatOnSave": true,
     "prettier.configPath": ".prettierrc",
     "python.defaultInterpreterPath": "${workspaceFolder}/env/bin/python",
-    "remote.localPortHost": "allInterfaces"
+    "remote.localPortHost": "allInterfaces",
+    "json.schemas": [
+        {
+            "fileMatch": [
+                "**/manifest.json"
+            ],
+            "url": "https://json.schemastore.org/chrome-manifest"
+        }
+    ]
 }

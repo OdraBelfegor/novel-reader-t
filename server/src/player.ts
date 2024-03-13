@@ -1,11 +1,17 @@
 import type { Server, Socket } from 'socket.io';
-import type { ServerToClientEvents, ClientToServerEvents } from '@common/events';
+import type {
+  ServerToClientEvents,
+  ClientToServerEvents,
+  ProviderServerToClientEvents,
+  ProviderClientToServerEvents,
+} from '@common/events';
 import type { PlayerState } from '@common/types';
 import PlayerAudioControl from './player-audio-control';
 import TextToSpeech from './tts-use';
 import TextToSpeechUse from './tts-use';
 
 export type PlayerSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
+export type ProviderSocket = Socket<ProviderClientToServerEvents, ProviderServerToClientEvents>;
 
 export class PlayerUsers {
   users: PlayerSocket[];
@@ -200,6 +206,8 @@ export class PlayerControl {
   tts: TextToSpeech;
   audio: PlayerAudioControl;
 
+  provider?: ProviderSocket;
+
   player?: Player;
   loop: boolean;
   loopActive: boolean;
@@ -393,5 +401,27 @@ export class PlayerControl {
   getContent(): string[] {
     if (this.player) return this.player.getRawContent();
     return [];
+  }
+
+  setProvider(provider: ProviderSocket) {
+    if (this.provider) {
+      console.log('Provider already set');
+      return;
+    }
+    console.log('Set provider:', provider.id);
+    this.provider = provider;
+  }
+
+  removeProvider(provider: ProviderSocket) {
+    if (!this.provider) {
+      console.log('Provider already removed');
+      return;
+    }
+
+    if (this.provider.id === provider.id) {
+      console.log('Remove provider:', this.provider.id);
+      this.provider = undefined;
+      return;
+    }
   }
 }

@@ -2,10 +2,15 @@ import express, { Express, Request, Response } from 'express';
 import proxy from 'express-http-proxy';
 import { createServer } from 'http';
 import morgan from 'morgan';
-import { Server } from 'socket.io';
+import { Namespace, Server } from 'socket.io';
 import path from 'path';
 
-import type { ClientToServerEvents, ServerToClientEvents } from '../../common/events';
+import type {
+  ClientToServerEvents,
+  ServerToClientEvents,
+  ProviderClientToServerEvents,
+  ProviderServerToClientEvents,
+} from '../../common/events';
 import { PlayerUsers, PlayerControl } from './player';
 
 const PORT: number = Number(process.env.PORT_SERVER) || 5500;
@@ -43,10 +48,14 @@ app.post('/tts-notice', (_req: Request, res: Response) => {
   res.sendStatus(200);
 });
 
-const playerUsers = new PlayerUsers(io);
+const mainServer: Server<ClientToServerEvents, ServerToClientEvents> = io;
+const providerServer: Namespace<ProviderClientToServerEvents, ProviderServerToClientEvents> =
+  io.of('/provider');
+
+const playerUsers = new PlayerUsers(mainServer);
 const playerControl = new PlayerControl(playerUsers, `http://127.0.0.1:${TTS_PORT}`);
 
-io.on('connection', socket => {
+mainServer.on('connection', socket => {
   playerUsers.add(socket);
   console.log(`User connected: ${socket.id}`, playerUsers.getIdList());
 
@@ -80,6 +89,15 @@ io.on('connection', socket => {
   socket.on('player:request-load-content', () =>
     socket.emit('view:load-content', playerControl.getContent())
   );
+});
+
+providerServer.on('connection', socket => {
+  playerControl.setProvider(socket);
+
+  socket.emit('print', 'Hello World');
+  socket.on('disconnect', () => {
+    playerControl.removeProvider(socket);
+  });
 });
 
 httpServer.listen(PORT, () => {
