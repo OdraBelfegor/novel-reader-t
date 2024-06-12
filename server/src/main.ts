@@ -10,7 +10,7 @@ import type {
   ServerToClientEvents,
   ProviderClientToServerEvents,
   ProviderServerToClientEvents,
-} from '../../common/events';
+} from '../../common/socket-events';
 import { PlayerUsers, PlayerControl } from './player';
 
 const PORT: number = Number(process.env.PORT_SERVER) || 5500;
@@ -64,9 +64,11 @@ mainServer.on('connection', socket => {
     console.log(`User disconnected: ${socket.id}`, playerUsers.getIdList());
   });
 
-  socket.on('player:read-this', (contentToRead: string[]) => playerControl.readThis(contentToRead));
+  socket.on('player:read-this', (contentToRead: string[]) =>
+    playerControl.readThis(contentToRead, socket)
+  );
 
-  socket.on('player:play', () => playerControl.play());
+  socket.on('player:play', () => playerControl.play(socket));
 
   socket.on('player:backward', () => playerControl.backward());
 

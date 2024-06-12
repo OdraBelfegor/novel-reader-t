@@ -8,14 +8,18 @@
                 "../common/*"
             ]
         },
+        // "typeRoots": [
+        //     "../common"
+        // ]
     },
     "extends": [
-        "@tsconfig/svelte/tsconfig.json"
+        "@tsconfig/svelte/tsconfig.json",
+        // "../tsconfig.json"
     ],
     "include": [
-        "src/**/*"
+        "src/**/*.ts",
     ],
     "exclude": [
         "node_modules"
-    ]
+    ],
 }

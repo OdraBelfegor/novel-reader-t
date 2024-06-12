@@ -6,19 +6,20 @@
     "rootDir": "src", /* Allow multiple folders to be treated as one when resolving modules. */
     // "baseUrl": ".", /* Specify the base directory to resolve non-relative module names. */
     "paths": {
-      "@common/*": [
-        "../common/*"
-      ]
-    }, /* Specify a set of entries that re-map imports to additional lookup locations. */
+      // "@common/*": [
+      //   "../common/*"
+      // ]
+    },
     // "forceConsistentCasingInFileNames": true, /* Ensure that casing is correct in imports. */
     "strict": true, /* Enable all strict type-checking options. */
     "esModuleInterop": true, /* Emit additional JavaScript to ease support for importing CommonJS modules. This enables 'allowSyntheticDefaultImports' for type compatibility. */
     // "skipLibCheck": true /* Skip type checking all .d.ts files. */
   },
-  // "include": [
-  //   "src/**/*.ts",
-  // ],
+  "include": [
+    "src/**/*.ts",
+  ],
   "exclude": [
     "node_modules"
-  ]
+  ],
+  "extends": "../tsconfig.json"
 }

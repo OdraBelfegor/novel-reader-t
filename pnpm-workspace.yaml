@@ -3,4 +3,4 @@ packages:
   - 'server'
   - 'web'
   - 'extension'
-  - 'ext-try'
+  - 'extension-v'

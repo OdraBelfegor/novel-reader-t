@@ -10,9 +10,10 @@ import copy from 'rollup-plugin-copy';
 
 const production = !process.env.ROLLUP_WATCH;
 
+// const production = !process.env.NODE_ENV === 'development';
+
 const commonPlugins = [
   production && terser(),
-  !production && livereload('dist'),
   typescript({
     sourceMap: false,
   }),
@@ -56,6 +57,7 @@ export default [
       css(),
       svelte({
         preprocess: sveltePreprocess({ sourceMap: !production }),
+        // emitCss: true,
         compilerOptions: {
           dev: !production,
         },

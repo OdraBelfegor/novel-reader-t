@@ -4,8 +4,8 @@ import type {
   ClientToServerEvents,
   ProviderServerToClientEvents,
   ProviderClientToServerEvents,
-} from '@common/events';
-import type { PlayerState } from '@common/types';
+} from 'socket-events';
+import type { PlayerState } from 'types';
 import PlayerAudioControl from './player-audio-control';
 import TextToSpeech from './tts-use';
 import TextToSpeechUse from './tts-use';
@@ -53,6 +53,10 @@ export class PlayerUsers {
   }
 }
 
+export type onEndedPlayer = (cause: 'stopped' | 'end:forward' | 'end:backward') => void;
+export type onPlayPlayer = () => void;
+export type onActionPlayer = () => void;
+
 export class Player {
   protected rawContent: string[];
   protected currentIndex: number;
@@ -60,9 +64,9 @@ export class Player {
   protected state: 'IDLE' | 'PLAYING' | 'PAUSED';
 
   // public onEnded?: (stopped: boolean) => void;
-  public onEnded?: (cause: 'stopped' | 'end:forward' | 'end:backward') => void;
-  public onPlay?: () => void;
-  public onAction?: () => void;
+  public onEnded?: onEndedPlayer;
+  public onPlay?: onPlayPlayer;
+  public onAction?: onActionPlayer;
 
   protected audio: PlayerAudioControl;
   protected tts: TextToSpeech;
@@ -224,7 +228,7 @@ export class PlayerControl {
     this.loopLimit = null;
   }
 
-  async readThis(contentToRead: string[]): Promise<void> {
+  async readThis(contentToRead: string[], user: PlayerSocket): Promise<void> {
     console.log(['Action read this']);
 
     if (this.player) {
@@ -262,47 +266,109 @@ export class PlayerControl {
     this.users.server.emit('view:load-content', this.getContent());
   }
 
-  async play(): Promise<void> {
+  async play(user: PlayerSocket): Promise<void> {
     console.log(['Action play']);
 
     if (!this.player) {
-      console.log('No player');
+      console.log(['No player']);
 
-      this.player = new Player(
-        [
-          'Walking up to the door, I open it to reveal Ai, her entrancing purple eyes peeking over her sunglasses.',
-          '"Hey, Cassius! It\'s karaoke time!".',
-          "\"Haa, you do realize that you didn't tell me anything about this like you said you would? You're lucky I wasn't heading out tonight, you would've been left alone in front of my door.\".",
-          '"Oh, I did, didn\'t I? Whoopsie~".',
-          '"Whatever. Come on in, the furniture got here this morning, so you have a place to sit now.".',
-        ],
-        this.audio,
-        this.tts
-      );
+      if (!this.provider) {
+        console.log('No provider of content');
+        user.emit('alert:show', 'No provider connected');
+        return;
+      }
 
-      this.player.onPlay = () => {
+      // Get content in the tab shown
+      const rawContent = await this.provider
+        .timeout(10000)
+        .emitWithAck('get-content', 0)
+        .catch(() => undefined);
+
+      if (!rawContent) {
+        console.log('Cannot get content from provider');
+        user.emit('alert:show', 'Cannot get content');
+        return;
+      }
+
+      this.player = new Player(rawContent, this.audio, this.tts);
+
+      const onPlay: onPlayPlayer = () => {
         if (!this.player) return;
         this.users.server.emit('view:highlight-sentence', this.player.getIndex());
       };
 
-      this.player.onAction = () => {
+      const onAction: onActionPlayer = () => {
         if (!this.player) return;
         this.users.server.emit('view:update-state', this.getConfig());
       };
 
-      this.player.onEnded = async cause => {
+      const onEnded: onEndedPlayer = async cause => {
         console.log(['Player onEnded']);
         this.player = undefined;
 
-        await this.audio.alert('secondary');
+        if (cause !== 'stopped') await this.audio.alert('secondary');
         this.users.server.emit('view:update-state', this.getConfig());
         this.users.server.emit('view:load-content', this.getContent());
 
-        if (cause === 'stopped') {
-          console.log('Player ended by stop, dont continue cycle');
+        if (cause === 'stopped' || !this.provider) {
+          console.log("Player can't/shouldn't continue");
           await this.audio.alert('primary');
+          return;
+        }
+
+        if (cause === 'end:forward') {
+          console.log('Player ended naturally/forward');
+
+          const rawContent = await this.provider
+            .timeout(10000)
+            .emitWithAck('get-content', 1)
+            .catch(() => undefined);
+
+          if (!rawContent) {
+            await this.audio.alert('primary');
+            return;
+          }
+
+          this.player = new Player(rawContent, this.audio, this.tts);
+          this.player.onPlay = onPlay;
+          this.player.onAction = onAction;
+          this.player.onEnded = onEnded;
+
+          await this.player.play();
+
+          this.users.server.emit('view:load-content', this.getContent());
+          this.users.server.emit('view:update-state', this.getConfig());
+          return;
+        }
+
+        if (cause === 'end:backward') {
+          console.log('Player ended backward');
+          const rawContent = await this.provider
+            .timeout(10000)
+            .emitWithAck('get-content', -1)
+            .catch(() => undefined);
+
+          if (!rawContent) {
+            await this.audio.alert('primary');
+            return;
+          }
+
+          this.player = new Player(rawContent, this.audio, this.tts);
+          this.player.onPlay = onPlay;
+          this.player.onAction = onAction;
+          this.player.onEnded = onEnded;
+
+          await this.player.play();
+
+          this.users.server.emit('view:load-content', this.getContent());
+          this.users.server.emit('view:update-state', this.getConfig());
+          return;
         }
       };
+
+      this.player.onPlay = onPlay;
+      this.player.onAction = onAction;
+      this.player.onEnded = onEnded;
 
       await this.player.play();
 
