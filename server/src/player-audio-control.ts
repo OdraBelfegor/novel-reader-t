@@ -1,5 +1,5 @@
 import type { PlayerUsers, PlayerSocket } from './player';
-import { AlertType, EndType } from '@common/types';
+import { AlertType, EndType } from 'types';
 
 export default class PlayerAudioControl {
   state: 'IDLE' | 'PLAYING';
@@ -12,7 +12,7 @@ export default class PlayerAudioControl {
 
   async play(
     audio: ArrayBuffer,
-    onEvent: (event: { type: 'ended' | 'stopped' | 'disconnected' | 'no-connection' }) => void
+    onEvent: (event: { type: 'ended' | 'stopped' | 'disconnected' | 'no-connection' }) => void,
   ): Promise<void> {
     if (this.state === 'PLAYING') await this.stop();
 

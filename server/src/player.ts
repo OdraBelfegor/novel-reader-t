@@ -324,8 +324,9 @@ export class PlayerControl {
             .emitWithAck('get-content', 1)
             .catch(() => undefined);
 
-          if (!rawContent) {
+          if (!rawContent || rawContent.length === 0) {
             await this.audio.alert('primary');
+            console.log('Cannot get more content from provider');
             return;
           }
 

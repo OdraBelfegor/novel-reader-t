@@ -17,12 +17,9 @@ import {
     getDocText: contentDoc.getText,
     getCurrentIndex: contentDoc.getCurrentIndex,
     getPage: async (additive: number) => {
-      // sendSignal(createMessage("print", "Getting content"), "background");
-      const currentIndex = contentDoc.getCurrentIndex();
-      return await contentDoc.getText(currentIndex + additive);
-    },
-    getCurrentPage: async () => {
-      return await contentDoc.getText(contentDoc.getCurrentIndex());
+      if (additive === 0) return await contentDoc.getText(contentDoc.getCurrentIndex());
+
+      return await contentDoc.getText(contentDoc.getCurrentIndex() + additive);
     },
   };
 
