@@ -1,15 +1,21 @@
 {
   "manifest_version": 3,
-  "name": "NovelReader",
+  "name": "NovelReader Shadcn",
   "version": "1.0.0",
-  "description": "Connects to NovelReader local server to provide content",
-  "permissions": ["tabs", "storage", "activeTab"],
+  "description": "Version with shadcn to connect to NovelReader local server to provide content",
+  "permissions": ["tabs", "storage", "activeTab", "scripting"],
   "action": {
-    "default_popup": "popup/popup.html"
+    "default_popup": "popup.html"
   },
   "background": {
     "service_worker": "background.js",
     "type": "module"
   },
-  "host_permissions": ["http://*/*", "https://*/*"]
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "web_accessible_resources": [
+    {
+      "resources": ["*"],
+      "matches": ["*://*/*"]
+    }
+  ]
 }

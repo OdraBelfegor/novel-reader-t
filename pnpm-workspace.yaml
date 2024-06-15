@@ -3,4 +3,3 @@ packages:
   - 'server'
   - 'web'
   - 'extension'
-  - 'extension-v'

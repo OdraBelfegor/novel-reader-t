@@ -5,11 +5,11 @@ import vitePluginSocketIo from 'vite-plugin-socket-io';
 import path from 'path';
 
 import type { Server, Socket } from 'socket.io';
-import type { ServerToClientEvents, ClientToServerEvents } from '@common/events';
+import type { ServerToClientEvents, ClientToServerEvents } from '@common/socket-events';
 
 const socketEvents = (
   io: Server<ClientToServerEvents, ServerToClientEvents>,
-  socket: Socket<ClientToServerEvents, ServerToClientEvents>
+  socket: Socket<ClientToServerEvents, ServerToClientEvents>,
 ) => {
   console.log(`socket.io - connection: ${socket.id}`);
   socket.on('disconnect', () => {
@@ -56,7 +56,7 @@ const socketEvents = (
     console.log('skip-forward');
   });
 
-  socket.on('player:seek', index => {
+  socket.on('player:seek', (index: number): void => {
     console.log('skip-to', index);
   });
 
@@ -64,7 +64,7 @@ const socketEvents = (
     console.log('toggle-loop');
   });
 
-  socket.on('player:set-loop-limit', limit => {
+  socket.on('player:set-loop-limit', (limit: number): void => {
     console.log('set-loop-limit', limit);
   });
 
@@ -99,7 +99,7 @@ export default defineConfig({
       transformIndexHtml(html, ctx) {
         return html.replace(
           '</head>',
-          '  <script src="/socket.io/socket.io.js"></script>\n</head>'
+          '  <script src="/socket.io/socket.io.js"></script>\n</head>',
         );
       },
     },
