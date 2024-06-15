@@ -27,7 +27,8 @@ export default class PlayerAudioControl {
     this.audioSocket = audioSocket;
 
     try {
-      await audioSocket.timeout(1000).emitWithAck('audio:play', audio);
+      // * Timeout can be affected by network latency
+      await audioSocket.timeout(2000).emitWithAck('audio:play', audio);
     } catch (error) {
       onEvent({ type: 'no-connection' });
       return;

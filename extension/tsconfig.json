@@ -32,6 +32,9 @@
     "src/**/*.js",
     "src/**/*.svelte"
   ],
+  "exclude": [
+    "node_modules"
+  ],
   "references": [
     {
       "path": "./tsconfig.node.json"
