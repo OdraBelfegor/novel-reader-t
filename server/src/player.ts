@@ -4,11 +4,12 @@ import type {
   ClientToServerEvents,
   ProviderServerToClientEvents,
   ProviderClientToServerEvents,
-} from 'socket-events';
-import type { PlayerState } from 'types';
+} from '@common/socket-events';
+import type { PlayerState, ContentServer, ContentClient, TextProcessorResult } from '@common/types';
 import PlayerAudioControl from './player-audio-control';
 import TextToSpeech from './tts-use';
 import TextToSpeechUse from './tts-use';
+import textProcessor from './text-processor';
 
 export type PlayerSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 export type ProviderSocket = Socket<ProviderClientToServerEvents, ProviderServerToClientEvents>;
@@ -59,6 +60,7 @@ export type onActionPlayer = () => void;
 
 export class Player {
   protected rawContent: string[];
+  protected content: TextProcessorResult;
   protected currentIndex: number;
 
   protected state: 'IDLE' | 'PLAYING' | 'PAUSED';
@@ -85,10 +87,12 @@ export class Player {
     this.tts = tts;
 
     this.state = 'IDLE';
+
+    this.content = textProcessor(rawContent);
   }
 
   async play(): Promise<void> {
-    if (this.currentIndex >= this.rawContent.length) {
+    if (this.currentIndex >= this.content.server.length) {
       console.log('All content played');
       if (this.onEnded) this.onEnded('end:forward');
       return;
@@ -101,20 +105,74 @@ export class Player {
 
     this.state = 'PLAYING';
 
-    const sentence = this.rawContent[this.currentIndex];
-    const audio = await this.tts.getAudio(sentence);
+    const sentence = this.content.server[this.currentIndex];
 
-    console.log('Got audio for:', [sentence]);
+    if (sentence.isReadable) {
+      console.log('Readable sentence');
 
-    await this.audio.play(audio, ({ type }) => {
-      console.log('Audio ended, event:', { reason: type });
-      this.state = 'IDLE';
+      const getCurrentAudio = async () => {
+        if (sentence.audio) return;
+        const audio = await this.tts.getAudio(sentence.sentence).catch(() => undefined);
 
-      if (type === 'ended') {
-        this.currentIndex++;
-        this.play();
+        if (!audio) return;
+
+        sentence.audio = audio;
+        console.log('Getting audio for:', [
+          {
+            index: sentence.index,
+            sentence: sentence.sentence,
+            isReadable: sentence.isReadable,
+          },
+        ]);
+      };
+
+      const getNextAudio = async () => {
+        if (this.currentIndex + 1 >= this.content.server.length) return;
+        if (!this.content.server[this.currentIndex + 1].isReadable) return;
+        if (this.content.server[this.currentIndex + 1].audio) return;
+
+        const audio = await this.tts
+          .getAudio(this.content.server[this.currentIndex + 1].sentence)
+          .catch(() => undefined);
+
+        if (!audio) return;
+
+        this.content.server[this.currentIndex + 1].audio = audio;
+
+        console.log('Getting next audio:', {
+          index: this.currentIndex + 1,
+          sentence: this.content.server[this.currentIndex + 1].sentence,
+          isReadable: this.content.server[this.currentIndex + 1].isReadable,
+        });
+
+        return;
+      };
+
+      await Promise.all([getCurrentAudio(), getNextAudio()]);
+
+      if (sentence.audio) {
+        console.log('Playing sentence:', [sentence.sentence]);
+
+        await this.audio.play(sentence.audio, ({ type }) => {
+          console.log('Audio ended, event:', { reason: type });
+          this.state = 'IDLE';
+
+          if (type === 'ended') {
+            this.currentIndex++;
+            this.play();
+          }
+        });
+      } else {
+        console.log('Cannot play sentence:', [sentence.sentence]);
+        this.audio.alert('ping');
       }
-    });
+    } else {
+      console.log('Unreadable sentence');
+      this.state = 'IDLE';
+      this.currentIndex++;
+
+      this.play();
+    }
 
     if (this.onPlay) this.onPlay();
   }
@@ -184,7 +242,7 @@ export class Player {
   async seek(index: number): Promise<void> {
     await this.audio.stop();
 
-    if (index < 0 || index >= this.rawContent.length) return;
+    if (index < 0 || index >= this.content.server.length) return;
 
     this.currentIndex = index;
     await this.play();
@@ -198,6 +256,18 @@ export class Player {
 
   getIndex() {
     return this.currentIndex;
+  }
+
+  getContent() {
+    return this.content;
+  }
+
+  getServerContent() {
+    return this.content.server;
+  }
+
+  getClientContent() {
+    return this.content.client;
   }
 
   getRawContent() {
@@ -228,7 +298,7 @@ export class PlayerControl {
     this.loopLimit = null;
   }
 
-  async readThis(contentToRead: string[], user: PlayerSocket): Promise<void> {
+  async readThis(rawContent: string[], user: PlayerSocket): Promise<void> {
     console.log(['Action read this']);
 
     if (this.player) {
@@ -236,9 +306,9 @@ export class PlayerControl {
       return;
     }
 
-    console.log('Read this:', contentToRead);
+    console.log('Read this:', rawContent);
 
-    this.player = new Player(contentToRead, this.audio, this.tts);
+    this.player = new Player(rawContent, this.audio, this.tts);
 
     this.player.onPlay = () => {
       if (!this.player) return;
@@ -257,13 +327,13 @@ export class PlayerControl {
 
       this.audio.alert('primary');
       this.users.server.emit('view:update-state', this.getConfig());
-      this.users.server.emit('view:load-content', this.getContent());
+      this.users.server.emit('view:load-content', this.getClientContent());
     };
 
     await this.player.play();
 
     this.users.server.emit('view:update-state', this.getConfig());
-    this.users.server.emit('view:load-content', this.getContent());
+    this.users.server.emit('view:load-content', this.getClientContent());
   }
 
   async readFromProvider(user: PlayerSocket): Promise<void> {
@@ -303,7 +373,7 @@ export class PlayerControl {
 
       if (cause !== 'stopped') await this.audio.alert('secondary');
       this.users.server.emit('view:update-state', this.getConfig());
-      this.users.server.emit('view:load-content', this.getContent());
+      this.users.server.emit('view:load-content', this.getClientContent());
 
       if (cause === 'stopped' || !this.provider) {
         console.log("Player can't/shouldn't continue");
@@ -332,7 +402,7 @@ export class PlayerControl {
 
         await this.player.play();
 
-        this.users.server.emit('view:load-content', this.getContent());
+        this.users.server.emit('view:load-content', this.getClientContent());
         this.users.server.emit('view:update-state', this.getConfig());
         return;
       }
@@ -356,7 +426,7 @@ export class PlayerControl {
 
         await this.player.play();
 
-        this.users.server.emit('view:load-content', this.getContent());
+        this.users.server.emit('view:load-content', this.getClientContent());
         this.users.server.emit('view:update-state', this.getConfig());
         return;
       }
@@ -368,7 +438,7 @@ export class PlayerControl {
 
     await this.player.play();
 
-    this.users.server.emit('view:load-content', this.getContent());
+    this.users.server.emit('view:load-content', this.getClientContent());
     this.users.server.emit('view:update-state', this.getConfig());
   }
 
@@ -467,8 +537,8 @@ export class PlayerControl {
     };
   }
 
-  getContent(): string[] {
-    if (this.player) return this.player.getRawContent();
+  getClientContent(): ContentClient | [] {
+    if (this.player) return this.player.getClientContent();
     return [];
   }
 

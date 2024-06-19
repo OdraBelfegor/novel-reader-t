@@ -1,4 +1,4 @@
-import type { PlayerState, AlertType, Content, EndType } from './types';
+import type { PlayerState, AlertType, Content, EndType, ContentClient } from './types';
 
 export interface ClientToServerEvents {
   'player:read-this': (contentToRead: string[]) => void;
@@ -22,7 +22,7 @@ export interface ServerToClientEvents {
   'alert:play': (name: AlertType, ack: (...args: any[]) => void) => void;
   'alert:show': (message: string) => void;
   'view:update-state': (state: PlayerState) => void;
-  'view:load-content': (content: Content) => void;
+  'view:load-content': (content: ContentClient | []) => void;
   'view:highlight-sentence': (index: number) => void;
 }
 

@@ -40,7 +40,7 @@ app.use(
         }
       }
     },
-  })
+  }),
 );
 
 app.post('/tts-notice', (_req: Request, res: Response) => {
@@ -65,7 +65,7 @@ mainServer.on('connection', socket => {
   });
 
   socket.on('player:read-this', (contentToRead: string[]) =>
-    playerControl.readThis(contentToRead, socket)
+    playerControl.readThis(contentToRead, socket),
   );
 
   socket.on('player:play', () => playerControl.play(socket));
@@ -85,11 +85,11 @@ mainServer.on('connection', socket => {
   socket.on('player:remove-loop-limit', () => playerControl.removeLoopLimit());
 
   socket.on('player:request-state', () =>
-    socket.emit('view:update-state', playerControl.getConfig())
+    socket.emit('view:update-state', playerControl.getConfig()),
   );
 
   socket.on('player:request-load-content', () =>
-    socket.emit('view:load-content', playerControl.getContent())
+    socket.emit('view:load-content', playerControl.getClientContent()),
   );
 });
 

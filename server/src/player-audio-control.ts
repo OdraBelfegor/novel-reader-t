@@ -1,5 +1,5 @@
 import type { PlayerUsers, PlayerSocket } from './player';
-import { AlertType, EndType } from 'types';
+import { AlertType, EndType } from '@common/types';
 
 export default class PlayerAudioControl {
   state: 'IDLE' | 'PLAYING';

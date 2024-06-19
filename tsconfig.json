@@ -1,7 +1,9 @@
 {
     "compilerOptions": {
-        "typeRoots": [
-            "./common"
-        ]
+        "paths": {
+            "@common/*": [
+                "./common/*"
+            ]
+        }
     }
 }

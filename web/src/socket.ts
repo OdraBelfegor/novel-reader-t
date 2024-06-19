@@ -1,5 +1,5 @@
 import type { Socket } from 'socket.io-client';
-import type { ServerToClientEvents, ClientToServerEvents } from '@common/events';
+import type { ServerToClientEvents, ClientToServerEvents } from '@common/socket-events';
 
 declare global {
   interface Window {

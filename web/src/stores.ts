@@ -1,5 +1,5 @@
 import { writable, get, type Writable } from 'svelte/store';
-import type { PlayerState, Content } from '@common/types';
+import type { PlayerState, Content, ContentClient } from '@common/types';
 import { socket } from './socket';
 
 type View = 'home' | 'writer' | 'reader' | 'options';
@@ -20,9 +20,9 @@ export function toPreviousView(): void {
 }
 
 function createContentStore(): {
-  subscribe: Writable<Content>['subscribe'];
+  subscribe: Writable<ContentClient | []>['subscribe'];
 } {
-  const { subscribe, set, update } = writable<Content>([
+  const { subscribe, set, update } = writable<ContentClient | []>([
     // "Cosmic Phoenix Host: That's enough for me. I hope we can watch you.",
     // "God Tongue: Can't you use the Livestream function?",
     // 'Scarlet King: Ah right, feel free to watch.',

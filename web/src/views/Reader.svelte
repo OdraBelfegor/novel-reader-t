@@ -149,24 +149,22 @@
   <div class="progress-bar" bind:this={progressBar} style="width:{$progress}%;"></div>
 </div>
 <div class="text-area" class:without-content={!$contentLength} on:scroll={onScrollReader}>
-  {#each $contentStore as sentence, index}
-    <!-- svelte-ignore a11y-no-static-element-interactions -->
-    <!-- svelte-ignore a11y-click-events-have-key-events -->
-    <span
-      style="cursor: pointer;"
-      use:scrollIfActive={$contentIndexStore === index}
-      on:click={() => onClickSentence(index)}
-    >
-      <!-- {sentence.show + ' '} -->
-      {sentence}
-    </span>
-    <!-- {#if !sentence.isGroup}
-        <br />
-        <br class="reader-break" />
-      {/if} -->
-    <br />
-    <br class="reader-break" />
-  {/each}
+  {#if $contentStore.length !== 0}
+    {#each $contentStore as paragraph}
+      <p>
+        {#each paragraph.sentences as sentence}
+          <span
+            role="button"
+            tabindex="-1"
+            style="cursor:pointer"
+            use:scrollIfActive={$contentIndexStore === sentence.id}
+            on:keydown={() => onClickSentence(sentence.id)}
+            on:click={() => onClickSentence(sentence.id)}>{`${sentence.sentence} `}</span
+          >
+        {/each}
+      </p>
+    {/each}
+  {/if}
 </div>
 <div class="reader-bottom">
   <div>

@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { PluginOption, defineConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 // @ts-ignore
 import vitePluginSocketIo from 'vite-plugin-socket-io';
@@ -6,29 +6,48 @@ import path from 'path';
 
 import type { Server, Socket } from 'socket.io';
 import type { ServerToClientEvents, ClientToServerEvents } from '@common/socket-events';
+import type { ContentClient } from '@common/types';
 
 const socketEvents = (
   io: Server<ClientToServerEvents, ServerToClientEvents>,
   socket: Socket<ClientToServerEvents, ServerToClientEvents>,
 ) => {
-  console.log(`socket.io - connection: ${socket.id}`);
-  socket.on('disconnect', () => {
-    console.log(`socket.io - disconnection: ${socket.id}`);
-  });
-
-  let content: string[] = [
-    // {
-    //   show: "Shizuka deflated again, she thought her mother really agreed. It doesn't seem to be that easy...",
-    //   paragraph: 0,
-    //   read: '',
-    //   isGroup: false,
-    // },
-    // {
-    //   show: 'Mrs. Hiratsuka rose from her seat, she stood in front of Eiji and said: "Don\'t be nervous. I just wanted to make sure... Aren\'t you guys really dating?".',
-    //   paragraph: 1,
-    //   read: '',
-    //   isGroup: false,
-    // },
+  let content: ContentClient = [
+    {
+      id: 0,
+      sentences: [
+        {
+          id: 0,
+          paragraphId: 0,
+          inParagraphId: 0,
+          sentence:
+            '"What is Project: X, sir?" A woman\'s voice! I have heard her voice once before... Ah! That day at the hospital...',
+        },
+      ],
+    },
+    {
+      id: 1,
+      sentences: [
+        {
+          id: 1,
+          paragraphId: 1,
+          inParagraphId: 0,
+          sentence:
+            '"Project: X is him," the older man pointed his finger at me. "Have you ever heard of a perfect human, Doc. Hazel?".',
+        },
+      ],
+    },
+    {
+      id: 2,
+      sentences: [
+        {
+          id: 2,
+          paragraphId: 2,
+          inParagraphId: 0,
+          sentence: '"Perfect human... What does Subject 0x have to do with it?".',
+        },
+      ],
+    },
   ];
 
   socket.on('player:read-this', (text: string[]) => {
@@ -36,7 +55,6 @@ const socketEvents = (
 
     console.log('read-this', text);
 
-    content = text;
     socket.emit('view:load-content', content);
   });
 
@@ -87,7 +105,6 @@ const socketEvents = (
   });
 };
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
     svelte(),
@@ -110,6 +127,7 @@ export default defineConfig({
       '@lib': path.resolve(__dirname, './src/lib'),
       '@utils': path.resolve(__dirname, './src/utils'),
       '@views': path.resolve(__dirname, './src/views'),
+      '@common': path.resolve(__dirname, '../common'),
     },
   },
 });

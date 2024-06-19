@@ -1,9 +1,21 @@
 import nlp from 'compromise';
+import type {
+  ContentServer,
+  ContentClient,
+  ParagraphClient,
+  SentenceClient,
+  SentenceServer,
+  TextProcessorResult,
+} from '@common/types';
 
-export default function textProcessor(raw: string[]): {
-  server: ContentServer;
-  client: ContentClient;
-} {
+export default function textProcessor(raw: string[]): TextProcessorResult {
+  const rawFiltered = raw.filter((paragraph): boolean => {
+    if (paragraph === null || paragraph === undefined) return false;
+    if (paragraph.length === 0) return false;
+    if (paragraph.replace(/[\s]/gi, '') === '') return false;
+    return true;
+  });
+
   let paragraphCount = 0;
   let sentenceCount = 0;
 
@@ -12,14 +24,16 @@ export default function textProcessor(raw: string[]): {
   // Array of paragraphs to show
   let client: ContentClient = new Array<ParagraphClient>();
 
-  raw.map(paragraph => {
+  // For each paragraph
+  rawFiltered.forEach(paragraph => {
     client.push({
       id: paragraphCount,
       sentences: new Array<SentenceClient>(),
     });
 
+    // For each sentence
     let sentenceInParagraphCount = 0;
-    paragraphToSentences(paragraph).map(sentence => {
+    paragraphToSentences(paragraph).forEach(sentence => {
       client[paragraphCount].sentences.push({
         id: sentenceCount,
         paragraphId: paragraphCount,
@@ -53,7 +67,7 @@ export default function textProcessor(raw: string[]): {
 function paragraphToSentences(paragraph: string): string[] {
   //   const sentences = paragraph.match(/[^\.\!\?\;\)\]]+[\.\!\?\;\)\]\"]+/gi);
   //   return sentences || [paragraph];
-  // * test
+  if (paragraph.length <= 120) return [paragraph];
   return nlp(paragraph).sentences().out('array');
 }
 
@@ -63,16 +77,17 @@ function paragraphToSentences(paragraph: string): string[] {
  */
 function textToReadable(text: string): string {
   let edit = text.trim();
-  // Clear white spaces
-  edit = edit.replace(/\s/gi, ' ');
+  // Replace white spaces with spaces
+  edit = edit.replace(/\s+/gi, ' ');
   // Check [] because the TTS doesn't read them
   // It can replace certain characters tha are used as brackets to remark the text
-  edit = edit.replace(/[\[«「『\<]/gi, '(');
-  edit = edit.replace(/[\]»」』\>]/gi, ')');
+  edit = edit.replace(/[\[«「『\<{]/gi, '(');
+  edit = edit.replace(/[\]»」』\>}]/gi, ')');
   edit = edit.replace(/[\—]/gi, '-');
-  // More than three letters or certain symbols are corrected to only three
+  // More than three letters or certain symbols in a row are corrected to only three
   edit = edit.replace(/([\w\.\*\-\—])\1{3,}/g, match => match[0].repeat(3));
 
+  // Remove dots that don't make sense (they ruin TTS)
   edit = edit.replace(/\.\.\.\w/g, match => `${match.substring(match.length - 1)}`);
   // Remove simbols that don't make sense
   edit = edit.replace(/[^\w\(\)\/ \,\.\¡\!\¿\?\-\—\_\#\$\%\&\=\+\~\"\']/gi, ' ');
@@ -94,30 +109,3 @@ function isReadable(text: string): boolean {
   if (text.length > 1 && text.replace(/[^a-zA-Z0-9]/gi, '').length > 0) return true;
   return false;
 }
-
-export type SentenceServer = {
-  index: number;
-  sentence: string;
-  isReadable: boolean;
-  audio?: string;
-};
-
-export type ContentServer = SentenceServer[];
-
-export type SentenceClient = {
-  id: number;
-  paragraphId: number;
-  inParagraphId: number;
-  sentence: string;
-};
-
-export type ParagraphClient = { id: number; sentences: SentenceClient[] };
-
-export type ContentClient = ParagraphClient[];
-
-const rawContent = [
-  "The passage in question was on the sixth floor, near Ravenclaw tower, hidden behind the tapestry of Magnus the Treacherous, which would only open if you waved your wand exactly the opposite of the way Magnus was swinging in the tapestry. This shortcut seemed to be one of the few known in the castle, in fact the passage was so dirty and abandoned that I think I was the first one to find it in years, and that's with the help of my magical vision.",
-  "I didn't know what to do.",
-];
-
-console.log(textProcessor(rawContent));
