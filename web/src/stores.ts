@@ -62,10 +62,12 @@ function createPlayerStateStore(): {
     loop: false,
     loopActive: false,
     loopLimit: null,
+    loopCounter: null,
   });
 
   socket.on('view:update-state', state => {
     set(state);
+    // *Confirm what this does
     if (state.state !== 'INACTIVE' && get(contentStore).length === 0)
       socket.emit('player:request-load-content');
   });

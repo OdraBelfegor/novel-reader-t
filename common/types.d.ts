@@ -5,6 +5,7 @@ export interface PlayerState {
   loop: boolean;
   loopActive: boolean;
   loopLimit: number | null;
+  loopCounter: number | null;
 }
 
 export type Content = string[];

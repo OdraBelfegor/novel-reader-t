@@ -41,12 +41,12 @@
 <div class="actions actions-options">
   {#if $loop}
     <IconButton
-      title="{$loopLimit !== null ? 'Remove' : 'Set'} loop limit"
+      title="{$loopLimit === null ? 'Set' : 'Remove'} loop limit"
       onClick={() => {
         if (get(loopLimit) === null) {
           setTimeout(() => {
             let limit = Number(prompt('Enter loop limit'));
-            if (!isNaN(limit) && limit <= 10 && limit > 0)
+            if (!isNaN(limit) && limit <= 20 && limit > 0)
               socket.emit('player:set-loop-limit', limit);
           }, 1);
         } else socket.emit('player:remove-loop-limit');

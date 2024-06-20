@@ -97,11 +97,19 @@ const socketEvents = (
       loop: false,
       loopActive: false,
       loopLimit: null,
+      loopCounter: null,
     });
   });
 
   socket.on('player:request-load-content', () => {
     socket.emit('view:load-content', content);
+  });
+
+  socket.on('player:request-provider', ack => {
+    ack([
+      '"Is that why you tried to get me fuck you?" I asked flatly.',
+      '"Because, I smelled really good?" I said, mocking her. \'What the hell is she talking about? I used that cheap deo that Peter used to use.\'.',
+    ]);
   });
 };
 

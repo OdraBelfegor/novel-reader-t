@@ -6,7 +6,7 @@ let readingTab: number | undefined;
 /**
  *  Setup the page and get the current content
  */
-export async function getCurrentContent(callback: (...args: any) => void) {
+export async function getCurrentContent(callback: (content: string[] | []) => void) {
   readingTab = undefined;
 
   const currentTab: chrome.tabs.Tab = await getCurrentTab();
@@ -65,7 +65,7 @@ export async function getCurrentContent(callback: (...args: any) => void) {
 
   console.log('Getting response');
 
-  callback(await getContent(0, currentTab.id));
+  callback((await getContent(0, currentTab.id)) || []);
 
   readingTab = currentTab.id;
 }

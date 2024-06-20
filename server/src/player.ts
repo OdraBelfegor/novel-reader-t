@@ -273,6 +273,10 @@ export class Player {
   getRawContent() {
     return this.rawContent;
   }
+
+  setToLastIndex() {
+    this.currentIndex = this.content.server.length - 1;
+  }
 }
 
 export class PlayerControl {
@@ -285,6 +289,7 @@ export class PlayerControl {
   player?: Player;
   loop: boolean;
   loopActive: boolean;
+  loopCounter: number | null;
   loopLimit: number | null;
 
   constructor(users: PlayerUsers, ttsUrl: string) {
@@ -295,6 +300,14 @@ export class PlayerControl {
 
     this.loop = false;
     this.loopActive = false;
+    this.loopCounter = null;
+    this.loopLimit = null;
+  }
+
+  restartConfig() {
+    this.loop = false;
+    this.loopActive = false;
+    this.loopCounter = null;
     this.loopLimit = null;
   }
 
@@ -309,6 +322,13 @@ export class PlayerControl {
     console.log('Read this:', rawContent);
 
     this.player = new Player(rawContent, this.audio, this.tts);
+
+    this.restartConfig();
+
+    this.loop = false;
+    this.loopActive = false;
+    this.loopCounter = null;
+    this.loopLimit = null;
 
     this.player.onPlay = () => {
       if (!this.player) return;
@@ -328,6 +348,8 @@ export class PlayerControl {
       this.audio.alert('primary');
       this.users.server.emit('view:update-state', this.getConfig());
       this.users.server.emit('view:load-content', this.getClientContent());
+
+      this.restartConfig();
     };
 
     await this.player.play();
@@ -357,6 +379,13 @@ export class PlayerControl {
 
     this.player = new Player(rawContent, this.audio, this.tts);
 
+    this.restartConfig();
+
+    this.loop = true;
+    this.loopActive = true;
+    this.loopCounter = null;
+    this.loopLimit = null;
+
     const onPlay: onPlayPlayer = () => {
       if (!this.player) return;
       this.users.server.emit('view:highlight-sentence', this.player.getIndex());
@@ -371,18 +400,41 @@ export class PlayerControl {
       console.log(['Player onEnded']);
       this.player = undefined;
 
-      if (cause !== 'stopped') await this.audio.alert('secondary');
-      this.users.server.emit('view:update-state', this.getConfig());
-      this.users.server.emit('view:load-content', this.getClientContent());
+      const canContinue: boolean = (() => {
+        if (cause === 'stopped') return false;
+        if (!this.loopActive) return false;
+        if (
+          typeof this.loopLimit === 'number' &&
+          typeof this.loopCounter === 'number' &&
+          this.loopCounter >= this.loopLimit
+        ) {
+          return false;
+        }
+        return true;
+      })();
 
-      if (cause === 'stopped' || !this.provider) {
+      // End reading
+      if (!canContinue || !this.provider) {
         console.log("Player can't/shouldn't continue");
+
+        this.users.server.emit('view:load-content', this.getClientContent());
+        this.users.server.emit('view:update-state', this.getConfig());
+
         await this.audio.alert('primary');
+
+        this.restartConfig();
         return;
       }
 
+      // Continue reading
+      await this.audio.alert('secondary');
+      this.users.server.emit('view:update-state', this.getConfig());
+      this.users.server.emit('view:load-content', this.getClientContent());
+
       if (cause === 'end:forward') {
         console.log('Player ended naturally/forward');
+
+        if (typeof this.loopCounter === 'number') this.loopCounter++;
 
         const rawContent = await this.provider
           .timeout(10000)
@@ -392,6 +444,7 @@ export class PlayerControl {
         if (!rawContent || rawContent.length === 0) {
           await this.audio.alert('primary');
           console.log('Cannot get more content from provider');
+          this.restartConfig();
           return;
         }
 
@@ -414,15 +467,20 @@ export class PlayerControl {
           .emitWithAck('get-content', -1)
           .catch(() => undefined);
 
-        if (!rawContent) {
+        if (!rawContent || rawContent.length === 0) {
           await this.audio.alert('primary');
+          console.log('Cannot get more content from provider');
+          this.restartConfig();
           return;
         }
 
         this.player = new Player(rawContent, this.audio, this.tts);
+
         this.player.onPlay = onPlay;
         this.player.onAction = onAction;
         this.player.onEnded = onEnded;
+
+        this.player.setToLastIndex();
 
         await this.player.play();
 
@@ -518,14 +576,34 @@ export class PlayerControl {
 
   toggleLoop(): void {
     console.log(['Action toggle loop']);
+    this.loopActive = !this.loopActive;
+    this.users.server.emit('view:update-state', this.getConfig());
   }
 
   setLoopLimit(limit: number): void {
     console.log(['Action set loop limit', limit]);
+    this.loopLimit = limit;
+    if (this.loopCounter === null) this.loopCounter = 0;
+    this.users.server.emit('view:update-state', this.getConfig());
   }
 
   removeLoopLimit(): void {
     console.log(['Action remove loop limit']);
+    this.loopLimit = null;
+    this.loopCounter = null;
+    this.users.server.emit('view:update-state', this.getConfig());
+  }
+
+  async getContentFromProvider(): Promise<string[] | []> {
+    if (!this.provider) {
+      console.log('No provider');
+      return [];
+    }
+    const text: string[] | [] = await this.provider
+      .timeout(10000)
+      .emitWithAck('get-content', 0)
+      .catch(() => []);
+    return text || [];
   }
 
   getConfig(): PlayerState {
@@ -534,6 +612,7 @@ export class PlayerControl {
       loop: this.loop,
       loopActive: this.loopActive,
       loopLimit: this.loopLimit,
+      loopCounter: this.loopCounter,
     };
   }
 

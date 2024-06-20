@@ -20,6 +20,17 @@
       }, 1);
     }
   }
+
+  async function getContentFromProvider() {
+    const text: string[] | [] = await socket
+      .timeout(15000)
+      .emitWithAck('player:request-provider')
+      .catch(() => []);
+
+    if (text.length === 0) return;
+
+    writer = text.join('\n');
+  }
 </script>
 
 <div class="actions-writer">
@@ -38,9 +49,9 @@
   </div>
   <div>
     <IconButton
-      title="Get content from provider"
+      title="Content from provider at current page"
       size="small"
-      onClick={() => console.log('Try provider')}
+      onClick={getContentFromProvider}
     >
       <GetIcon />
     </IconButton>

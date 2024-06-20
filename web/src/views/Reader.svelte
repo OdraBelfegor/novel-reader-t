@@ -38,6 +38,7 @@
   const state = derived(playerStateStore, $playerStateStore => $playerStateStore.state);
   const loop = derived(playerStateStore, $playerStateStore => $playerStateStore.loop);
   const loopActive = derived(playerStateStore, $playerStateStore => $playerStateStore.loopActive);
+  const loopCounter = derived(playerStateStore, $playerStateStore => $playerStateStore.loopCounter);
   const loopLimit = derived(playerStateStore, $playerStateStore => $playerStateStore.loopLimit);
   const contentLength = derived(contentStore, $contentStore => $contentStore.length);
 
@@ -69,7 +70,6 @@
     let scrollPercentage = (scrollTop / scrollHeight) * 100;
 
     progress.set(scrollPercentage);
-    // progressBar.style.width = `${scrollPercentage}%`;
   }
 </script>
 
@@ -128,7 +128,7 @@
   <div>
     {#if $loop}
       <IconButton
-        title="{$loopActive ? 'Continue' : 'Break'} loop"
+        title="{$loopActive ? 'Break' : 'Continue'} loop"
         size="small"
         onClick={() => socket.emit('player:toggle-loop')}
       >
@@ -177,8 +177,8 @@
     {/if}
   </div>
   <div>
-    {#if $loopLimit !== null}
-      <p>Loop limit: {$loopLimit}</p>
+    {#if $loopCounter !== null && $loopLimit !== null}
+      <p>Remainig chapters: {$loopLimit - $loopCounter}</p>
     {/if}
   </div>
 </div>
