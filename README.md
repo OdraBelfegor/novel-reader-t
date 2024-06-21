@@ -1,5 +1,53 @@
 # Novel Reader (Server, Web App/Page, Extension)
 
+## Instructions
+
+if server/public doesn't exists
+
+```bash
+    mkdir server/public
+```
+
+Build first webapp
+
+```bash
+    cd web
+    pnpm run build
+    pnpm run copy:destroy
+```
+
+Build server and install python deps
+
+```bash
+    # Create venv
+    cd ..
+    python -m venv env
+    source env/bin/activate
+
+    # Install dependecies
+    cd server
+    pip install -r requirements.txt
+
+    # Build server
+    pnpm run build
+
+    # To use with .env run the next two separetly
+    pnpm run start:dev
+    pnpm run tts
+
+    # OR run as it is with
+    pnpm run start
+```
+
+To use extension first build
+
+```bash
+    cd extension
+    pnpm run build
+```
+
+Localize path to directory and load in chrome based browser with developer mode, load extension without package
+
 ## Todo
 
 - [x] Text processor to separate by sentences
