@@ -14,7 +14,10 @@ export default class PlayerAudioControl {
     audio: ArrayBuffer,
     onEvent: (event: { type: 'ended' | 'stopped' | 'disconnected' | 'no-connection' }) => void,
   ): Promise<void> {
-    if (this.state === 'PLAYING') await this.stop();
+    if (this.state === 'PLAYING') {
+      console.log('Already playing, stopping first');
+      await this.stop();
+    }
 
     const audioSocket = this.users.getUserByIndex(0);
 
@@ -24,6 +27,7 @@ export default class PlayerAudioControl {
     }
 
     this.state = 'PLAYING';
+    // if(this.audioSocket !== audioSocket){}
     this.audioSocket = audioSocket;
 
     try {
@@ -35,16 +39,17 @@ export default class PlayerAudioControl {
     }
 
     const handleAudioEnd = (type: 'ended' | 'stopped') => {
-      onEvent({ type });
       removeHandlers();
       this.state = 'IDLE';
+      this.audioSocket = undefined;
+      onEvent({ type });
     };
 
     const handleDisconnection = () => {
-      onEvent({ type: 'disconnected' });
-      if (this.audioSocket === audioSocket) this.audioSocket = undefined;
       removeHandlers();
       this.state = 'IDLE';
+      this.audioSocket = undefined;
+      onEvent({ type: 'disconnected' });
     };
 
     const removeHandlers = () => {

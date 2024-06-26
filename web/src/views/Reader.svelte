@@ -1,6 +1,5 @@
 <script lang="ts">
-  import type { Action } from 'svelte/action';
-  import { derived, get } from 'svelte/store';
+  import { derived } from 'svelte/store';
   import { tweened } from 'svelte/motion';
   import { sineOut } from 'svelte/easing';
   import scrollIntoView from 'scroll-into-view-if-needed';
@@ -73,55 +72,44 @@
   }
 </script>
 
+<svelte:window
+  on:keydown={event => {
+    // @ts-ignore
+    if (['input', 'textarea'].includes(event.target.tagName.toLowerCase())) return;
+    if (!event.altKey) return;
+    const keycode = event.code;
+    if (keycode === 'KeyJ') socket.emit('player:backward');
+    if (keycode === 'KeyK') socket.emit('player:play');
+    if (keycode === 'KeyL') socket.emit('player:forward');
+    if (keycode === 'KeyI') socket.emit('player:toggle-loop');
+    if (keycode === 'KeyO') socket.emit('player:stop');
+  }}
+/>
+
 <div class="actions-reader">
   <div>
-    <IconButton title="Increase font size" size="small" onClick={increaseFontSize}>
+    <IconButton title="Increase font size" size="small" on:click={increaseFontSize}>
       <TextSizeUpIcon />
     </IconButton>
-    <IconButton title="Decrease font size" size="small" onClick={decreaseFontSize}>
+    <IconButton title="Decrease font size" size="small" on:click={decreaseFontSize}>
       <TextSizeDownIcon />
     </IconButton>
   </div>
   <div>
-    <IconButton
-      title="Skip backward"
-      size="small"
-      onClick={() => {
-        console.log('Skip backward');
-        socket.emit('player:backward');
-      }}
-    >
+    <IconButton title="Skip backward" size="small" on:click={() => socket.emit('player:backward')}>
       <SkipStartIcon />
     </IconButton>
-    <IconButton
-      title="Start/Resume/Pause"
-      onClick={() => {
-        socket.emit('player:play');
-      }}
-    >
+    <IconButton title="Start/Resume/Pause" on:click={() => socket.emit('player:play')}>
       {#if $state === 'PLAYING'}
         <PauseIcon />
       {:else}
         <PlayIcon />
       {/if}
     </IconButton>
-    <IconButton
-      title="Stop"
-      onClick={() => {
-        console.log('Stop');
-        socket.emit('player:stop');
-      }}
-    >
+    <IconButton title="Stop" on:click={() => socket.emit('player:stop')}>
       <StopIcon />
     </IconButton>
-    <IconButton
-      title="Skip forward"
-      size="small"
-      onClick={() => {
-        console.log('Skip forward');
-        socket.emit('player:forward');
-      }}
-    >
+    <IconButton title="Skip forward" size="small" on:click={() => socket.emit('player:forward')}>
       <SkipEndIcon />
     </IconButton>
   </div>
@@ -130,7 +118,7 @@
       <IconButton
         title="{$loopActive ? 'Break' : 'Continue'} loop"
         size="small"
-        onClick={() => socket.emit('player:toggle-loop')}
+        on:click={() => socket.emit('player:toggle-loop')}
       >
         {#if $loopActive}
           <UniqueIcon />
@@ -140,7 +128,7 @@
       </IconButton>
     {/if}
     <!-- TODO: Add Priority Button -->
-    <IconButton title="Options" onClick={() => goToView('options')}>
+    <IconButton title="Options" on:click={() => goToView('options')}>
       <OptionsIcon />
     </IconButton>
   </div>
@@ -167,20 +155,14 @@
   {/if}
 </div>
 <div class="reader-bottom">
-  <div>
-    {#if !$contentLength}
-      <IconButton title="Return" onClick={toPreviousView}>
-        <ReturnIcon />
-      </IconButton>
-    {:else}
-      <div />
-    {/if}
-  </div>
-  <div>
-    {#if $loopCounter !== null && $loopLimit !== null}
-      <p>Remainig chapters: {$loopLimit - $loopCounter}</p>
-    {/if}
-  </div>
+  {#if !$contentLength}
+    <IconButton title="Return" on:click={toPreviousView}>
+      <ReturnIcon />
+    </IconButton>
+  {/if}
+  {#if $loopCounter !== null && $loopLimit !== null}
+    <p>Remainig chapters: {$loopLimit - $loopCounter}</p>
+  {/if}
 </div>
 
 <style>
@@ -214,14 +196,11 @@
     column-gap: 1%;
     align-items: center;
     margin-top: 8px;
-    & div:nth-child(2) {
+    & p {
       color: var(--senary-color);
       font-size: 0.8rem;
       font-weight: 700;
-
-      & p {
-        text-align: end;
-      }
+      text-align: end;
     }
   }
 

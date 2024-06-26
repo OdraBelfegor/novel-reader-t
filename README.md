@@ -53,8 +53,9 @@ Localize path to directory and load in chrome based browser with developer mode,
 - [x] Text processor to separate by sentences
 - [x] Cache audio from a sentence in a Player, so as to not to request multiple times
 - [x] Frontend use of sentences
-- [ ] Make the web page a web app, to not use a tab in the browser
+- [x] Make the web page a web app, to not use a tab in the browser
 - [ ] Make DOCKERFILE
 - [x] Add loop limiter and loop control to server and web
-- [ ] Change way of playing audio
+- [ ] Change way of playing audio?
 - [ ] Add way to change which viewer is the player of audio
+- [x] Add key bindings

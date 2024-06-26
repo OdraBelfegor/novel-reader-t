@@ -35,15 +35,15 @@
 
 <div class="actions-writer">
   <div>
-    <IconButton title="Increase font size" size="small" onClick={increaseFontSize}>
+    <IconButton title="Increase font size" size="small" on:click={increaseFontSize}>
       <TextSizeUpIcon />
     </IconButton>
-    <IconButton title="Decrease font size" size="small" onClick={decreaseFontSize}>
+    <IconButton title="Decrease font size" size="small" on:click={decreaseFontSize}>
       <TextSizeDownIcon />
     </IconButton>
   </div>
   <div>
-    <IconButton title="Start" onClick={onStart}>
+    <IconButton title="Start" on:click={onStart}>
       <PlayIcon />
     </IconButton>
   </div>
@@ -51,11 +51,11 @@
     <IconButton
       title="Content from provider at current page"
       size="small"
-      onClick={getContentFromProvider}
+      on:click={getContentFromProvider}
     >
       <GetIcon />
     </IconButton>
-    <IconButton title="Return" onClick={toPreviousView}>
+    <IconButton title="Return" on:click={toPreviousView}>
       <ReturnIcon />
     </IconButton>
   </div>

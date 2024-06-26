@@ -6,13 +6,12 @@
   export let size: 'small' | 'normal' = 'normal';
 
   /** Callback when the button is clicked */
-  export let onClick = () => {};
 </script>
 
 <button
   type="button"
   {title}
-  on:click={onClick}
+  on:click
   class="button-primary btn-icon {size === 'small' ? 'btn-small' : 'btn'}"
 >
   <slot />

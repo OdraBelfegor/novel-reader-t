@@ -4,15 +4,21 @@ export class AudioEmitter {
   protected audioContext?: AudioContext;
   protected gainNode?: GainNode;
   protected audioSourceNode?: AudioBufferSourceNode;
-
-  protected currentOnEnded?: onAudioEnded;
+  stopped: boolean = false;
+  protected volume?: number;
+  protected playbackRate?: number;
 
   async play(audio: ArrayBuffer, onEnded: onAudioEnded) {
-    if (!this.audioContext) {
+    if (!this.audioContext || !this.gainNode) {
       // @ts-ignore
       this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
       this.gainNode = this.audioContext.createGain();
       this.gainNode.connect(this.audioContext.destination);
+    }
+
+    if (!this.volume || !this.playbackRate) {
+      this.volume = Number(localStorage.getItem('volumen') || '1');
+      this.playbackRate = Number(localStorage.getItem('playback') || '1');
     }
 
     if (this.audioSourceNode) this.audioSourceNode.stop();
@@ -21,33 +27,34 @@ export class AudioEmitter {
 
     this.audioSourceNode = this.audioContext.createBufferSource();
     this.audioSourceNode.buffer = buffer;
-    // @ts-ignore
     this.audioSourceNode.connect(this.gainNode);
 
-    this.currentOnEnded = onEnded;
+    this.gainNode.gain.value = this.volume;
+    this.audioSourceNode.playbackRate.value = this.playbackRate;
 
-    this.audioSourceNode.onended = () => {
+    this.audioSourceNode.onended = event => {
       this.audioSourceNode = undefined;
-      if (this.currentOnEnded) {
-        this.currentOnEnded('ended');
-      }
-      this.currentOnEnded = undefined;
+      onEnded(this.stopped ? 'stopped' : 'ended');
     };
 
+    this.stopped = false;
     this.audioSourceNode.start();
   }
 
   stop() {
     if (!this.audioSourceNode) return;
-    this.audioSourceNode.onended = () => {
-      this.audioSourceNode = undefined;
-      if (this.currentOnEnded) {
-        this.currentOnEnded('stopped');
-      }
-      this.currentOnEnded = undefined;
-    };
-
+    this.stopped = true;
     this.audioSourceNode.stop();
+  }
+
+  setVolume(volume: number) {
+    this.volume = volume;
+    if (this.gainNode) this.gainNode.gain.value = volume;
+  }
+
+  setPlaybackRate(rate: number) {
+    this.playbackRate = rate;
+    if (this.audioSourceNode) this.audioSourceNode.playbackRate.value = rate;
   }
 }
 

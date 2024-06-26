@@ -15,4 +15,6 @@ if (import.meta.env.DEV) {
   io = window.io;
 }
 
-export const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io();
+export const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io({
+  autoConnect: false,
+});

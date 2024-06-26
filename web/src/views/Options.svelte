@@ -4,20 +4,33 @@
 
   import IconButton from '@lib/ButtonIcon.svelte';
   import {
-    RequesterIcon,
     SetLoopLimitIcon,
     RemoveLoopLimitIcon,
     DarkThemeIcon,
     LightThemeIcon,
     ReturnIcon,
   } from '@/assets/svg';
-  import { toPreviousView, playerStateStore } from '@/stores';
+  import { toPreviousView, playerStateStore, audioControlStore } from '@/stores';
   import { socket } from '@/socket';
+  import { onMount } from 'svelte';
 
-  let volume = Number(localStorage.getItem('volumen'));
-  let playback = Number(localStorage.getItem('playback'));
+  const volume = derived(audioControlStore, $audioControlStore => $audioControlStore.volume);
+  const playbackRate = derived(
+    audioControlStore,
+    $audioControlStore => $audioControlStore.playback,
+  );
 
-  let theme = localStorage.getItem('theme');
+  let volumeInput: HTMLInputElement;
+  let playbackInput: HTMLInputElement;
+
+  let theme: 'light' | 'dark' = 'light';
+
+  onMount(() => {
+    // @ts-ignore
+    theme = localStorage.getItem('theme');
+    volumeInput.value = $volume.toString();
+    playbackInput.value = $playbackRate.toString();
+  });
 
   const loop = derived(playerStateStore, $playerStateStore => $playerStateStore.loop);
   const loopLimit = derived(playerStateStore, $playerStateStore => $playerStateStore.loopLimit);
@@ -28,30 +41,49 @@
     document.documentElement.dataset['theme'] = theme;
   }
 
-  function onSave() {
-    if (volume <= 2 && volume >= 0) {
-      localStorage.setItem('volumen', String(volume));
-    } else volume = Number(localStorage.getItem('volumen'));
-    if (playback <= 2 && playback > 0) {
-      localStorage.setItem('playback', String(playback));
-    } else playback = Number(localStorage.getItem('playback'));
+  function saveConfig() {
+    const volumeToSave = Number(volumeInput.value);
+    const playbackToSave = Number(playbackInput.value);
+
+    let volumeUpdate: number | undefined;
+    let playbackUpdate: number | undefined;
+
+    if (volumeToSave <= 2 && volumeToSave >= 0) {
+      localStorage.setItem('volumen', String(volumeToSave));
+      volumeUpdate = volumeToSave;
+    } else {
+      volumeInput.value = $volume.toString();
+    }
+
+    if (playbackToSave <= 2 && playbackToSave > 0) {
+      localStorage.setItem('playback', String(playbackToSave));
+      playbackUpdate = playbackToSave;
+    } else {
+      playbackInput.value = $playbackRate.toString();
+    }
+
+    if (volumeUpdate !== undefined || playbackUpdate !== undefined)
+      audioControlStore.update(value => {
+        return {
+          volume: volumeUpdate ?? value.volume,
+          playback: playbackUpdate ?? value.playback,
+        };
+      });
+  }
+
+  function controlLoop() {
+    if (get(loopLimit) === null) {
+      setTimeout(() => {
+        let limit = Number(prompt('Enter loop limit'));
+        if (!isNaN(limit) && limit <= 20 && limit > 0) socket.emit('player:set-loop-limit', limit);
+      }, 1);
+    } else socket.emit('player:remove-loop-limit');
   }
 </script>
 
 <div class="actions actions-options">
   {#if $loop}
-    <IconButton
-      title="{$loopLimit === null ? 'Set' : 'Remove'} loop limit"
-      onClick={() => {
-        if (get(loopLimit) === null) {
-          setTimeout(() => {
-            let limit = Number(prompt('Enter loop limit'));
-            if (!isNaN(limit) && limit <= 20 && limit > 0)
-              socket.emit('player:set-loop-limit', limit);
-          }, 1);
-        } else socket.emit('player:remove-loop-limit');
-      }}
-    >
+    <IconButton title="{$loopLimit === null ? 'Set' : 'Remove'} loop limit" on:click={controlLoop}>
       {#if $loopLimit !== null}
         <RemoveLoopLimitIcon />
       {:else}
@@ -59,14 +91,14 @@
       {/if}
     </IconButton>
   {/if}
-  <IconButton title="Switch theme" onClick={switchTheme}>
+  <IconButton title="Switch theme" on:click={switchTheme}>
     {#if theme === 'light'}
       <DarkThemeIcon />
     {:else}
       <LightThemeIcon />
     {/if}
   </IconButton>
-  <IconButton title="Return" onClick={toPreviousView}>
+  <IconButton title="Return" on:click={toPreviousView}>
     <ReturnIcon />
   </IconButton>
 </div>
@@ -81,7 +113,7 @@
       min="0"
       max="2"
       step="0.05"
-      bind:value={volume}
+      bind:this={volumeInput}
     />
   </div>
   <div class="option-group">
@@ -93,10 +125,10 @@
       min="0"
       max="2"
       step="0.05"
-      bind:value={playback}
+      bind:this={playbackInput}
     />
   </div>
-  <button class="button-primary btn-text" on:click|preventDefault={onSave}>Save</button>
+  <button class="button-primary btn-text" on:click|preventDefault={saveConfig}>Save</button>
 </form>
 
 <style>

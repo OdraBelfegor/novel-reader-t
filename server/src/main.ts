@@ -95,6 +95,10 @@ mainServer.on('connection', socket => {
   socket.on('player:request-provider', async ack => {
     ack(await playerControl.getContentFromProvider());
   });
+
+  socket.emit('view:update-state', playerControl.getConfig());
+  socket.emit('view:load-content', playerControl.getClientContent());
+  socket.emit('view:highlight-sentence', playerControl.getIndex());
 });
 
 providerServer.on('connection', socket => {

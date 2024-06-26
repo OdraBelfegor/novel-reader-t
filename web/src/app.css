@@ -41,7 +41,7 @@ html[data-theme='dark'] {
   --text-color: #8f909b;
 }
 
-@media screen and (max-width: 500px) {
+@media screen and (max-width: 550px) {
   :root {
     --buttons-normal: 40px;
     --buttons-small: 32px;
@@ -60,6 +60,12 @@ body,
   max-height: 100vh;
   margin: 0;
   /* overflow: hidden; */
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  padding: calc(var(--area-padding) + 0.5rem);
 }
 
 body {

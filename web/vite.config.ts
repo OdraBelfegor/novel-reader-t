@@ -29,6 +29,8 @@ export default defineConfig({
         short_name: 'NovelReader',
         description: 'Client to read novels with local tts server and connect to other devices',
         theme_color: '#ffffff',
+        display_override: ['fullscreen', 'minimal-ui'],
+        display: 'standalone',
         icons: [
           {
             src: 'pwa-64x64.png',
@@ -54,9 +56,9 @@ export default defineConfig({
         ],
       },
       registerType: 'autoUpdate',
-      // devOptions: {
-      //   enabled: true,
-      // },
+      devOptions: {
+        enabled: true,
+      },
     }),
   ],
   resolve: {
