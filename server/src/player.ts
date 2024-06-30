@@ -102,7 +102,10 @@ export class Player {
       return;
     }
 
-    if (this.state === 'PAUSED' && this.onAction) this.onAction();
+    if (this.state === 'PAUSED') {
+      console.log('Already paused');
+      return;
+    }
 
     if (this.state === 'PLAYING') {
       console.log('Already playing');
@@ -199,10 +202,10 @@ export class Player {
 
     if (this.state === 'PLAYING') {
       await this.audio.stop();
-      this.state = 'PAUSED';
     }
-
-    if (this.onAction) this.onAction();
+    this.state = 'PAUSED';
+    this.onAction && this.onAction();
+    // if (this.onAction) this.onAction();
   }
 
   async resume(): Promise<void> {
@@ -526,11 +529,13 @@ export class PlayerControl {
     }
 
     if (this.player.getState() === 'PLAYING') {
+      console.log(['Already playing, pause it']);
       await this.player.pause();
       return;
     }
 
     if (this.player.getState() === 'PAUSED') {
+      console.log(['Already paused, resume it']);
       await this.player.resume();
       return;
     }

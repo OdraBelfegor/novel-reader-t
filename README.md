@@ -1,6 +1,20 @@
 # Novel Reader (Server, Web App/Page, Extension)
 
-## Instructions
+## Docker Install
+
+### Docker Build
+
+``` bash
+docker build -t odra_belf/novel-reader . --network="host"
+```
+
+### Docker Run
+
+``` bash
+docker run --gpus all -p 5000:5000/tcp -v E:/CoquiTTS/models/:/models -v E:\CoquiTTS\results\:/results -d odra_belf/novel-reader
+```
+
+## Instructions (Manual)
 
 if server/public doesn't exists
 
@@ -54,7 +68,7 @@ Localize path to directory and load in chrome based browser with developer mode,
 - [x] Cache audio from a sentence in a Player, so as to not to request multiple times
 - [x] Frontend use of sentences
 - [x] Make the web page a web app, to not use a tab in the browser
-- [ ] Make DOCKERFILE
+- [x] Make DOCKERFILE
 - [x] Add loop limiter and loop control to server and web
 - [ ] Change way of playing audio?
 - [ ] Add way to change which viewer is the player of audio

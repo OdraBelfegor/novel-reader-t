@@ -13,8 +13,8 @@ import type {
 } from '../../common/socket-events';
 import { PlayerUsers, PlayerControl } from './player';
 
-const PORT: number = Number(process.env.PORT_SERVER) || 5500;
-const TTS_PORT: number = Number(process.env.TTS_SERVER) || 5505;
+const PORT: number = Number(process.env.PORT_SERVER) || 5000;
+const TTS_PORT: number = Number(process.env.TTS_SERVER) || 5050;
 
 const app: Express = express();
 const httpServer = createServer(app);

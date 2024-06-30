@@ -11,8 +11,8 @@ import requests
 
 load_dotenv()
 
-PORT = int(os.environ.get("TTS_SERVER", "8000"))
-MAIN_PORT = int(os.environ.get("PORT_SERVER", "5500"))
+PORT = int(os.environ.get("TTS_SERVER", "5050"))
+MAIN_PORT = int(os.environ.get("PORT_SERVER", "5000"))
 OUTPUT_DIR = os.environ.get("OUTPUT_DIR", "/app/results/")
 
 device = "cuda" if torch.cuda.is_available() else "cpu"

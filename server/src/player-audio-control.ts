@@ -28,28 +28,29 @@ export default class PlayerAudioControl {
 
     this.state = 'PLAYING';
     // if(this.audioSocket !== audioSocket){}
-    this.audioSocket = audioSocket;
 
     try {
       // * Timeout can be affected by network latency
-      await audioSocket.timeout(2000).emitWithAck('audio:play', audio);
+      await audioSocket.timeout(20000).emitWithAck('audio:play', audio);
     } catch (error) {
       onEvent({ type: 'no-connection' });
       return;
     }
 
+    this.audioSocket = audioSocket;
+
     const handleAudioEnd = (type: 'ended' | 'stopped') => {
-      removeHandlers();
-      this.state = 'IDLE';
       this.audioSocket = undefined;
+      this.state = 'IDLE';
       onEvent({ type });
+      removeHandlers();
     };
 
     const handleDisconnection = () => {
-      removeHandlers();
-      this.state = 'IDLE';
       this.audioSocket = undefined;
+      this.state = 'IDLE';
       onEvent({ type: 'disconnected' });
+      removeHandlers();
     };
 
     const removeHandlers = () => {
@@ -62,8 +63,11 @@ export default class PlayerAudioControl {
   }
 
   async stop(): Promise<void> {
-    if (this.state === 'IDLE' || !this.audioSocket) return;
-    await this.audioSocket.timeout(1000).emitWithAck('audio:stop');
+    if (this.state === 'IDLE' || this.audioSocket === undefined) {
+      console.log(['No audio socket or in idle state']);
+      return;
+    }
+    await this.audioSocket.timeout(20000).emitWithAck('audio:stop');
   }
 
   async alert(name: AlertType): Promise<void> {
@@ -75,7 +79,7 @@ export default class PlayerAudioControl {
     console.log('Play alert:', name);
 
     try {
-      await this.audioSocket.timeout(5000).emitWithAck('alert:play', name);
+      await this.audioSocket.timeout(20000).emitWithAck('alert:play', name);
       console.log('Alert played');
     } catch (error) {
       console.log('Error playing alert:', error);

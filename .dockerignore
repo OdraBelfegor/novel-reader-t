@@ -1,0 +1,17 @@
+**/node_modules
+env
+.vscode
+.env
+*.md
+.prettierrc
+.dockerignore
+Dockerfile
+
+.git
+.gitignore
+
+
+**/dist
+**/dev-dist
+server/public/**/*
+extension
