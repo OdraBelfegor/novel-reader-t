@@ -32,7 +32,8 @@
     duration: 300,
     easing: sineOut,
   });
-  let progressBar;
+  let progressBar: HTMLDivElement;
+  let content: HTMLDivElement;
 
   const state = derived(playerStateStore, $playerStateStore => $playerStateStore.state);
   const loop = derived(playerStateStore, $playerStateStore => $playerStateStore.loop);
@@ -41,9 +42,13 @@
   const loopLimit = derived(playerStateStore, $playerStateStore => $playerStateStore.loopLimit);
   const contentLength = derived(contentStore, $contentStore => $contentStore.length);
 
-  function scrollIfActive(node: HTMLElement, active: boolean) {
+  contentLength.subscribe(() => {
+    progress.set(0);
+  });
+
+  function scrollIfActive(node: HTMLSpanElement, active: boolean) {
     if (active) {
-      scrollIntoView(node, { scrollMode: 'if-needed', block: 'center', behavior: 'smooth' });
+      scrollIntoView(node, { scrollMode: 'if-needed', block: 'center', behavior: 'instant' });
       node.classList.add('active');
     } else node.classList.remove('active');
     return {
@@ -62,13 +67,32 @@
     socket.emit('player:seek', index);
   }
 
-  function onScrollReader(e: Event) {
-    const target = e.target as HTMLElement;
+  function controlProgressBar(
+    e: UIEvent & {
+      currentTarget: EventTarget & HTMLDivElement;
+    },
+  ) {
+    const target = e.currentTarget;
     let scrollTop = target.scrollTop;
     let scrollHeight = target.scrollHeight - target.clientHeight;
     let scrollPercentage = (scrollTop / scrollHeight) * 100;
 
     progress.set(scrollPercentage);
+  }
+
+  function controlScrollbar(
+    event: MouseEvent & {
+      currentTarget: EventTarget & HTMLDivElement;
+    },
+  ) {
+    if (!event.target) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+
+    const progressPercentage = Math.round((x / rect.width) * 10000) / 10000;
+
+    const contentHeight = content.scrollHeight - content.getBoundingClientRect().height;
+    content.scrollTop = contentHeight * progressPercentage;
   }
 </script>
 
@@ -133,10 +157,17 @@
     </IconButton>
   </div>
 </div>
-<div class="progress-wrapper">
+<!-- svelte-ignore a11y-no-static-element-interactions  a11y-click-events-have-key-events -->
+<div class="progress-wrapper" tabindex="-1" on:click={controlScrollbar}>
   <div class="progress-bar" bind:this={progressBar} style="width:{$progress}%;"></div>
 </div>
-<div class="text-area" class:without-content={!$contentLength} on:scroll={onScrollReader}>
+<div
+  id="content"
+  class="text-area"
+  class:without-content={!$contentLength}
+  on:scroll={controlProgressBar}
+  bind:this={content}
+>
   {#if $contentStore.length !== 0}
     {#each $contentStore as paragraph}
       <p>
@@ -219,6 +250,7 @@
     height: 10px;
     background-color: var(--tertiary-color);
     width: 0%;
+    pointer-events: none;
   }
 
   .text-area::-webkit-scrollbar {

@@ -212,6 +212,7 @@ export class Player {
     if (this.state === 'IDLE') return;
 
     if (this.state === 'PAUSED') {
+      this.state = 'IDLE';
       await this.play();
     }
 
