@@ -11,7 +11,7 @@ docker build -t odra_belf/novel-reader . --network="host"
 ### Docker Run
 
 ``` bash
-docker run --gpus all -p 5000:5000/tcp -v E:/CoquiTTS/models/:/models -v E:\CoquiTTS\results\:/results -d odra_belf/novel-reader
+docker run --gpus all -p 5000:8000/tcp -v path/to/model:/model -e VITS_MODEL=/model -d odra_belf/novel-reader
 ```
 
 ## Instructions (Manual)
@@ -73,3 +73,4 @@ Localize path to directory and load in chrome based browser with developer mode,
 - [ ] Change way of playing audio?
 - [ ] Add way to change which viewer is the player of audio
 - [x] Add key bindings
+- [ ] Add [stay awake](https://developer.chrome.com/docs/capabilities/web-apis/wake-lock) to mantain the screen active

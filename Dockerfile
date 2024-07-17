@@ -3,31 +3,35 @@ FROM ubuntu:jammy
 
 ENV DEBIAN_FRONTEND=noninteractive PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 
-# RUN useradd -ms /bin/bash myuser
-# USER myuser
-
+# Install dependencies
 RUN --mount=type=cache,target=/var/cache/apt apt-get update && apt-get install -y --no-install-recommends \
-    espeak-ng libsndfile1-dev curl && \
-    apt-get install -y software-properties-common && \
+    espeak-ng libsndfile1-dev && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install python
+RUN --mount=type=cache,target=/var/cache/apt apt-get update && apt-get install -y software-properties-common && \
     add-apt-repository ppa:deadsnakes/ppa -y && \
     apt-get install -y python3.11 python3-pip &&\
     ln -s /usr/bin/python3.11 /usr/bin/python && \
-    pip install --upgrade pip && \
+    python -m pip install --upgrade pip && \
+    apt-get remove -y --purge software-properties-common && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install node
+RUN --mount=type=cache,target=/var/cache/apt apt-get update && apt-get install -y curl && \
     curl -sL https://deb.nodesource.com/setup_20.x | bash - && \
     apt-get update && \
     apt-get install -y nodejs && \
     npm install -g pnpm && \
-    apt-get remove -y --purge software-properties-common curl && \
-    apt-get -y upgrade && \
+    apt-get remove -y --purge curl && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
-
 
 WORKDIR /app
 COPY . .
 
 RUN --mount=type=cache,target=/root/.cache/pip python -m pip install -r requirements.txt --ignore-installed && \
-    pip cache purge
+    python -m pip cache purge
 
 RUN pnpm install && pnpm --filter ./web build && \
     pnpm --filter ./web copy:destroy && \
@@ -37,7 +41,6 @@ RUN pnpm install && pnpm --filter ./web build && \
     pnpm prune --prod && \
     pnpm store prune
 
-ENV TTS_HOME=/models/ OUTPUT_DIR=/results/ PORT_SERVER=5000 TTS_SERVER=5050
-EXPOSE ${PORT_SERVER}
+EXPOSE 8000
 
 CMD [ "pnpm", "--filter", "./server", "start" ]

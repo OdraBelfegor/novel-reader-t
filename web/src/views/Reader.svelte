@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import { derived } from 'svelte/store';
   import { tweened } from 'svelte/motion';
   import { sineOut } from 'svelte/easing';
@@ -42,7 +43,8 @@
   const loopLimit = derived(playerStateStore, $playerStateStore => $playerStateStore.loopLimit);
   const contentLength = derived(contentStore, $contentStore => $contentStore.length);
 
-  contentLength.subscribe(() => {
+  contentLength.subscribe(async () => {
+    await tick();
     progress.set(0);
   });
 
