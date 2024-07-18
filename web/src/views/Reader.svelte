@@ -96,21 +96,27 @@
     const contentHeight = content.scrollHeight - content.getBoundingClientRect().height;
     content.scrollTop = contentHeight * progressPercentage;
   }
-</script>
 
-<svelte:window
-  on:keydown={event => {
-    // @ts-ignore
-    if (['input', 'textarea'].includes(event.target.tagName.toLowerCase())) return;
+  function handleKeydownWindow(
+    event: KeyboardEvent & {
+      currentTarget: EventTarget & Window;
+    },
+  ) {
+    const target = event.target as HTMLElement;
+    if (['input', 'textarea'].includes(target.tagName.toLowerCase())) return;
+
     if (!event.altKey) return;
+
     const keycode = event.code;
     if (keycode === 'KeyJ') socket.emit('player:backward');
     if (keycode === 'KeyK') socket.emit('player:play');
     if (keycode === 'KeyL') socket.emit('player:forward');
     if (keycode === 'KeyI') socket.emit('player:toggle-loop');
     if (keycode === 'KeyO') socket.emit('player:stop');
-  }}
-/>
+  }
+</script>
+
+<svelte:window on:keydown={handleKeydownWindow} />
 
 <div class="actions-reader">
   <div>
@@ -161,7 +167,7 @@
 </div>
 <!-- svelte-ignore a11y-no-static-element-interactions  a11y-click-events-have-key-events -->
 <div class="progress-wrapper" tabindex="-1" on:click={controlScrollbar}>
-  <div class="progress-bar" bind:this={progressBar} style="width:{$progress}%;"></div>
+  <div class="progress-bar" bind:this={progressBar} style:width={`${$progress}%`}></div>
 </div>
 <div
   id="content"

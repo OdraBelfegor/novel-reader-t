@@ -175,6 +175,7 @@ export class Player {
       } else {
         console.log('Cannot play sentence:', [sentence.sentence]);
         this.audio.alert('ping');
+        this.state = 'IDLE';
       }
     } else {
       this.state = 'IDLE';

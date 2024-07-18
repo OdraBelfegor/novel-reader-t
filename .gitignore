@@ -6,6 +6,5 @@ env
 .pem
 __pycache__
 
-server/public/**/*
 
 ext-try

@@ -71,6 +71,8 @@ Localize path to directory and load in chrome based browser with developer mode,
 - [x] Make DOCKERFILE
 - [x] Add loop limiter and loop control to server and web
 - [ ] Change way of playing audio?
+- [ ] Solve problems with pause after ending audio and before the next audio is send
 - [ ] Add way to change which viewer is the player of audio
 - [x] Add key bindings
 - [ ] Add [stay awake](https://developer.chrome.com/docs/capabilities/web-apis/wake-lock) to mantain the screen active
+- [ ] Redesign interface of web
