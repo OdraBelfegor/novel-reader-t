@@ -1,5 +1,6 @@
 export default class TextToSpeechUse {
   private url: string;
+  // Work on abort
   constructor(urlTTS: string) {
     this.url = urlTTS;
   }

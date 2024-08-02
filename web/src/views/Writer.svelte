@@ -24,7 +24,7 @@
   async function getContentFromProvider() {
     const text: string[] | [] = await socket
       .timeout(15000)
-      .emitWithAck('player:request-provider')
+      .emitWithAck('request-provider')
       .catch(() => []);
 
     if (text.length === 0) return;

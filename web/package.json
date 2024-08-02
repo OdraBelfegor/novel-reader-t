@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "copy": "cp -r dist/* ../server/public ",
-    "copy:destroy": "find ../server/public -type f -delete -print  && cp -r dist/* ../server/public "
+    "copy:destroy": "find ../server/public -type f -not -name .gitignore -delete -print  && cp -r dist/* ../server/public "
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^3.1.1",

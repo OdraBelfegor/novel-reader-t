@@ -19,22 +19,36 @@ MODEL_PATH = os.environ.get("VITS_MODEL", "kakao-enterprise/vits-ljs")
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using {device} device.")
 print(f"Using {MODEL_PATH} model.")
+
 model = VitsModel.from_pretrained(MODEL_PATH).to(device)
 tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
 sample_rate = model.config.sampling_rate
-inputs = tokenizer("This is a test", return_tensors="pt").to(device)
 
-with torch.no_grad():
-    model(**inputs)
+
+def generate_audio(text: str) -> numpy.ndarray:
+    inputs = tokenizer(text, return_tensors="pt").to(device)
+    with torch.no_grad():
+        audio = model(**inputs).waveform
+    return audio.cpu().numpy().squeeze()
+
+
+generate_audio("This is a test.")
 
 app = Flask(__name__)
-try:
-    requests.post(
-        f"http://localhost:{PORT}/tts-notice", data={"Status": "TTS server online"}
-    )
-except Exception:
-    print("Error passing notice")
-    pass
+
+
+def notify_main_server():
+    try:
+        requests.post(
+            f"http://localhost:{PORT}/tts-notice",
+            data={"Status": "TTS server online"},
+            timeout=5,
+        )
+    except Exception as e:
+        print(f"Error passing notice: {e}")
+
+
+notify_main_server()
 
 
 def get_short_hash(text):
@@ -46,8 +60,8 @@ def get_short_hash(text):
 
 @app.route("/tts", methods=["POST", "GET"])
 def process_tts():
-    if request.method not in ["POST", "GET"]:
-        return jsonify({"error": "Method not allowed"}), 405
+    # if request.method not in ["POST", "GET"]:
+    #     return jsonify({"error": "Method not allowed"}), 405
 
     if request.method == "GET":
         text = request.args.get("text")
@@ -58,14 +72,19 @@ def process_tts():
         return jsonify({"error": "Text is empty"}), 400
 
     try:
-        inputs = tokenizer(text, return_tensors="pt").to(device)
-        
-        with torch.no_grad():
-            audio = model(**inputs).waveform
-        
+        print(f"\033[96m Received text: {text}\033[00m")
+
+        audio = generate_audio(text)
         wav = io.BytesIO()
-        audio = audio.cpu().numpy().squeeze()
-        sf.write(wav, numpy.concatenate((audio, numpy.zeros(int(0.5 * sample_rate), dtype=audio.dtype))), samplerate=sample_rate, format="wav")
+
+        sf.write(
+            wav,
+            numpy.concatenate(
+                (audio, numpy.zeros(int(0.5 * sample_rate), dtype=audio.dtype))
+            ),
+            samplerate=sample_rate,
+            format="wav",
+        )
         wav.seek(0)
         return send_file(wav, mimetype="audio/wav")
     except Exception as e:
@@ -74,7 +93,7 @@ def process_tts():
 
 @app.route("/ping", methods=["GET"])
 def ping():
-    return jsonify({"success": "pong"}), 200
+    return jsonify({"status": "ok", "message": "TTS server is running"}), 200
 
 
 if __name__ == "__main__":

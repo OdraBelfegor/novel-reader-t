@@ -14,7 +14,7 @@ export interface ClientToServerEvents {
   'player:request-state': () => void;
   'player:request-load-content': () => void;
   'audio:ended': (reason: EndType) => void;
-  'player:request-provider': (ack: (text: string[] | []) => void) => void;
+  'request-provider': (ack: (text: string[] | []) => void) => void;
 }
 
 export interface ServerToClientEvents {

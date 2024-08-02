@@ -132,7 +132,7 @@
       <SkipStartIcon />
     </IconButton>
     <IconButton title="Start/Resume/Pause" on:click={() => socket.emit('player:play')}>
-      {#if $state === 'PLAYING'}
+      {#if $state === 'PLAYING' || $state === 'IDLE'}
         <PauseIcon />
       {:else}
         <PlayIcon />

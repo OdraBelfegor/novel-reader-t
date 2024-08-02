@@ -5,7 +5,9 @@
   "private": true,
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "list": "pip list"
+    "list": "pip list",
+    "start-dev:main": "pnpm --filter ./server start:dev",
+    "start-dev:tts": "pnpm --filter ./server tts"
   },
   "keywords": [],
   "author": "",

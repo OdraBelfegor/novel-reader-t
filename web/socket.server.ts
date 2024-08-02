@@ -99,7 +99,7 @@ export default function socketEvents(
     socket.emit('view:load-content', content);
   });
 
-  socket.on('player:request-provider', ack => {
+  socket.on('request-provider', ack => {
     ack([
       '"Is that why you tried to get me fuck you?" I asked flatly.',
       '"Because, I smelled really good?" I said, mocking her. \'What the hell is she talking about? I used that cheap deo that Peter used to use.\'.',

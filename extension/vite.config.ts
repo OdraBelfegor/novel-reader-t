@@ -4,39 +4,45 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 import path from 'path';
 
 // https://vitejs.dev/config/
-export default defineConfig({
-  plugins: [svelte({ preprocess: vitePreprocess() })],
-  publicDir: '../public',
-  envDir: '../',
-  root: 'src',
+export default defineConfig(({ command, mode }) => {
+  console.log({ mode });
 
-  resolve: {
-    alias: {
-      $lib: path.resolve('./src/lib'),
-      // '$lib/*': './src/lib/*',
-    },
-  },
-  build: {
-    sourcemap: 'inline',
-    outDir: '../dist',
-    emptyOutDir: true,
-    assetsDir: '',
-    rollupOptions: {
-      input: {
-        popup: './src/popup.html',
-        background: './src/background.ts',
-        content: './src/content.ts',
-      },
-      output: {
-        assetFileNames: 'assets/[name][extname]',
-        chunkFileNames: 'assets/[name].js',
-        entryFileNames: '[name].js',
+  return {
+    plugins: [svelte({ preprocess: vitePreprocess() })],
+    publicDir: '../public',
+    envDir: '../',
+    root: 'src',
+
+    resolve: {
+      alias: {
+        $lib: path.resolve('./src/lib'),
       },
     },
-    watch: {
-      buildDelay: 1000,
-      exclude: ['**/node_modules/**', '**/dist/**'],
-      include: ['src/**/*', 'public/**/*'],
+    build: {
+      sourcemap: 'inline',
+      outDir: '../dist',
+      emptyOutDir: true,
+      assetsDir: '',
+      rollupOptions: {
+        input: {
+          popup: './src/popup.html',
+          background: './src/background.ts',
+          content: './src/content.ts',
+        },
+        output: {
+          assetFileNames: 'assets/[name][extname]',
+          chunkFileNames: 'assets/[name].js',
+          entryFileNames: '[name].js',
+        },
+      },
+      watch:
+        mode === 'dev'
+          ? {
+              buildDelay: 1000,
+              exclude: ['**/node_modules/**', '**/dist/**'],
+              include: ['src/**/*', 'public/**/*'],
+            }
+          : undefined,
     },
-  },
+  };
 });

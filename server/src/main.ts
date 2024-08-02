@@ -10,8 +10,8 @@ import type {
   ServerToClientEvents,
   ProviderClientToServerEvents,
   ProviderServerToClientEvents,
-} from '../../common/socket-events';
-import { PlayerUsers, PlayerControl } from './player';
+} from '@common/socket-events';
+import { PlayerControl, PlayerUsers } from './player';
 
 const PORT: number = Number(process.env.PORT_SERVER) || 8000;
 const TTS_PORT: number = Number(process.env.TTS_SERVER) || 8080;
@@ -84,15 +84,15 @@ mainServer.on('connection', socket => {
 
   socket.on('player:remove-loop-limit', () => playerControl.removeLoopLimit());
 
-  socket.on('player:request-state', () =>
-    socket.emit('view:update-state', playerControl.getConfig()),
-  );
+  // socket.on('player:request-state', () =>
+  //   socket.emit('view:update-state', playerControl.getConfig()),
+  // );
 
-  socket.on('player:request-load-content', () =>
-    socket.emit('view:load-content', playerControl.getClientContent()),
-  );
+  // socket.on('player:request-load-content', () =>
+  //   socket.emit('view:load-content', playerControl.getClientContent()),
+  // );
 
-  socket.on('player:request-provider', async ack => {
+  socket.on('request-provider', async ack => {
     ack(await playerControl.getContentFromProvider());
   });
 

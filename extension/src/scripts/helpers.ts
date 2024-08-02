@@ -23,6 +23,7 @@ export async function getCurrentTab() {
   const [tab] = await chrome.tabs.query({
     active: true,
     highlighted: true,
+    windowType: 'normal',
   });
   return tab;
 }
