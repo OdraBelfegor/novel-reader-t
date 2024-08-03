@@ -40,9 +40,9 @@ app = Flask(__name__)
 def notify_main_server():
     try:
         requests.post(
-            f"http://localhost:{PORT}/tts-notice",
+            f"http://localhost:{MAIN_PORT}/tts-notice",
             data={"Status": "TTS server online"},
-            timeout=5,
+            timeout=1000,
         )
     except Exception as e:
         print(f"Error passing notice: {e}")
@@ -75,6 +75,7 @@ def process_tts():
         print(f"\033[96m Received text: {text}\033[00m")
 
         audio = generate_audio(text)
+        audio = (audio * 32767).astype(numpy.int16)
         wav = io.BytesIO()
 
         sf.write(
@@ -88,6 +89,7 @@ def process_tts():
         wav.seek(0)
         return send_file(wav, mimetype="audio/wav")
     except Exception as e:
+        print(f"\033[95mError processing TTS: {e}\033[00m")
         return jsonify({"error": str(e)}), 500
 
 

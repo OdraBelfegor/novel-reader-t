@@ -1,6 +1,8 @@
 import type { PlayerSocket, PlayerUsers } from '.';
 import { AlertType, EndType } from '@common/types';
 
+export type ReasonAudioEnd = 'ended' | 'stopped' | 'disconnected' | 'no-connection';
+
 export class PlayerAudioControl {
   state: 'IDLE' | 'PLAYING';
   users: PlayerUsers;
@@ -12,7 +14,7 @@ export class PlayerAudioControl {
 
   async play(
     audio: ArrayBuffer,
-    onEvent: (event: { type: 'ended' | 'stopped' | 'disconnected' | 'no-connection' }) => void,
+    onEvent: (event: { type: ReasonAudioEnd }) => void,
   ): Promise<void> {
     if (this.state === 'PLAYING') {
       console.log('Already playing, stopping first');
@@ -62,6 +64,47 @@ export class PlayerAudioControl {
     audioSocket.on('disconnect', handleDisconnection);
   }
 
+  async asynchronousPlay(audio: ArrayBuffer): Promise<ReasonAudioEnd> {
+    if (this.state === 'PLAYING') {
+      console.log('Already playing, stopping first');
+      await this.stop();
+    }
+
+    const audioSocket = this.users.getUserByIndex(0);
+
+    if (!audioSocket) return 'no-connection';
+
+    this.state = 'PLAYING';
+
+    try {
+      await audioSocket.timeout(20000).emitWithAck('audio:play', audio);
+    } catch (error) {
+      return 'no-connection';
+    }
+    this.audioSocket = audioSocket;
+
+    return new Promise(resolve => {
+      const handleAudioEnd = (type: 'ended' | 'stopped') => {
+        cleanup();
+        resolve(type);
+      };
+      const handleDisconnection = () => {
+        cleanup();
+        resolve('disconnected');
+      };
+
+      const cleanup = () => {
+        this.audioSocket = undefined;
+        this.state = 'IDLE';
+        audioSocket.off('audio:ended', handleAudioEnd);
+        audioSocket.off('disconnect', handleDisconnection);
+      };
+
+      audioSocket.on('audio:ended', handleAudioEnd);
+      audioSocket.on('disconnect', handleDisconnection);
+    });
+  }
+
   async stop(): Promise<void> {
     if (this.state === 'IDLE' || this.audioSocket === undefined) {
       console.log(['No audio socket or in idle state']);
@@ -71,15 +114,17 @@ export class PlayerAudioControl {
   }
 
   async alert(name: AlertType): Promise<void> {
-    if (!this.audioSocket) {
-      const audioSocket = this.users.getUserByIndex(0);
-      if (!audioSocket) return;
-      this.audioSocket = audioSocket;
-    }
+    let audioSocket: PlayerSocket | undefined;
+
+    if (!this.audioSocket) audioSocket = this.users.getUserByIndex(0);
+    else audioSocket = this.audioSocket;
+
+    if (!audioSocket) return;
+
     console.log('Play alert:', name);
 
     try {
-      await this.audioSocket.timeout(20000).emitWithAck('alert:play', name);
+      await audioSocket.timeout(20000).emitWithAck('alert:play', name);
       console.log('Alert played');
     } catch (error) {
       console.log('Error playing alert:', error);

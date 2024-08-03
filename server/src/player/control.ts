@@ -49,6 +49,105 @@ export class PlayerControl {
     this.loopLimit = null;
   }
 
+  private playerOnPlay: onPlayPlayer = () => {
+    if (!this.player) return;
+    this.users.server.emit('view:highlight-sentence', this.player.getIndex());
+  };
+
+  private playerOnAction: onActionPlayer = () => {
+    if (!this.player) return;
+    this.users.server.emit('view:update-state', this.getConfig());
+  };
+
+  private playerOnEndedSingle: onEndedPlayer = cause => {
+    console.log(['Player onEnded']);
+
+    this.player = undefined;
+
+    this.audio.alert('primary');
+    this.users.server.emit('view:update-state', this.getConfig());
+    this.users.server.emit('view:load-content', this.getClientContent());
+
+    this.restartConfig();
+  };
+
+  private playerOnEndedLoop: onEndedPlayer = async cause => {
+    console.log(['Player onEnded']);
+    this.player = undefined;
+
+    const canContinue: boolean = (() => {
+      if (cause === 'stopped') return false;
+      if (!this.loopActive) return false;
+      if (
+        typeof this.loopLimit === 'number' &&
+        typeof this.loopCounter === 'number' &&
+        this.loopCounter >= this.loopLimit
+      ) {
+        return false;
+      }
+      return true;
+    })();
+
+    // End reading
+    if (!canContinue || !this.provider) {
+      console.log("Player can't/shouldn't continue");
+
+      this.restartConfig();
+
+      this.users.server.emit('view:load-content', this.getClientContent());
+      this.users.server.emit('view:update-state', this.getConfig());
+
+      await this.audio.alert('primary');
+
+      return;
+    }
+
+    // Continue reading
+    await this.audio.alert('secondary');
+    this.users.server.emit('view:update-state', this.getConfig());
+    this.users.server.emit('view:load-content', this.getClientContent());
+
+    let rawContent: string[] | undefined;
+
+    if (cause === 'end:forward') {
+      console.log('Player ended naturally/forward');
+
+      if (typeof this.loopCounter === 'number') this.loopCounter++;
+
+      rawContent = await this.provider
+        .timeout(10000)
+        .emitWithAck('get-content', 1)
+        .catch(() => undefined);
+    } else {
+      console.log('Player ended backward');
+      if (typeof this.loopCounter === 'number') this.loopCounter--;
+
+      rawContent = await this.provider
+        .timeout(10000)
+        .emitWithAck('get-content', -1)
+        .catch(() => undefined);
+    }
+
+    if (!rawContent || rawContent.length === 0) {
+      await this.audio.alert('primary');
+      console.log('Cannot get more content from provider');
+      this.restartConfig();
+      return;
+    }
+
+    this.player = new Player(rawContent, this.audio, this.tts);
+    this.player.onPlay = this.playerOnPlay;
+    this.player.onAction = this.playerOnAction;
+    this.player.onEnded = this.playerOnEndedLoop;
+
+    if (cause === 'end:backward') this.player.setToLastIndex();
+
+    await this.player.run();
+
+    this.users.server.emit('view:load-content', this.getClientContent());
+    this.users.server.emit('view:update-state', this.getConfig());
+  };
+
   async readThis(rawContent: string[], user: PlayerSocket): Promise<void> {
     console.log(['Action read this']);
 
@@ -68,29 +167,13 @@ export class PlayerControl {
     this.loopCounter = null;
     this.loopLimit = null;
 
-    this.player.onPlay = () => {
-      if (!this.player) return;
-      this.users.server.emit('view:highlight-sentence', this.player.getIndex());
-    };
+    this.player.onPlay = this.playerOnPlay;
 
-    this.player.onAction = () => {
-      if (!this.player) return;
-      this.users.server.emit('view:update-state', this.getConfig());
-    };
+    this.player.onAction = this.playerOnAction;
 
-    this.player.onEnded = cause => {
-      console.log(['Player onEnded']);
+    this.player.onEnded = this.playerOnEndedSingle;
 
-      this.player = undefined;
-
-      this.audio.alert('primary');
-      this.users.server.emit('view:update-state', this.getConfig());
-      this.users.server.emit('view:load-content', this.getClientContent());
-
-      this.restartConfig();
-    };
-
-    await this.player.play();
+    await this.player.run();
 
     this.users.server.emit('view:update-state', this.getConfig());
     this.users.server.emit('view:load-content', this.getClientContent());
@@ -129,116 +212,11 @@ export class PlayerControl {
     this.loopCounter = null;
     this.loopLimit = null;
 
-    const onPlay: onPlayPlayer = () => {
-      if (!this.player) return;
-      this.users.server.emit('view:highlight-sentence', this.player.getIndex());
-    };
+    this.player.onPlay = this.playerOnPlay;
+    this.player.onAction = this.playerOnAction;
+    this.player.onEnded = this.playerOnEndedLoop;
 
-    const onAction: onActionPlayer = () => {
-      if (!this.player) return;
-      this.users.server.emit('view:update-state', this.getConfig());
-    };
-
-    const onEnded: onEndedPlayer = async cause => {
-      console.log(['Player onEnded']);
-      this.player = undefined;
-
-      const canContinue: boolean = (() => {
-        if (cause === 'stopped') return false;
-        if (!this.loopActive) return false;
-        if (
-          typeof this.loopLimit === 'number' &&
-          typeof this.loopCounter === 'number' &&
-          this.loopCounter >= this.loopLimit
-        ) {
-          return false;
-        }
-        return true;
-      })();
-
-      // End reading
-      if (!canContinue || !this.provider) {
-        console.log("Player can't/shouldn't continue");
-
-        this.restartConfig();
-
-        this.users.server.emit('view:load-content', this.getClientContent());
-        this.users.server.emit('view:update-state', this.getConfig());
-
-        await this.audio.alert('primary');
-
-        return;
-      }
-
-      // Continue reading
-      await this.audio.alert('secondary');
-      this.users.server.emit('view:update-state', this.getConfig());
-      this.users.server.emit('view:load-content', this.getClientContent());
-
-      if (cause === 'end:forward') {
-        console.log('Player ended naturally/forward');
-
-        if (typeof this.loopCounter === 'number') this.loopCounter++;
-
-        const rawContent = await this.provider
-          .timeout(10000)
-          .emitWithAck('get-content', 1)
-          .catch(() => undefined);
-
-        if (!rawContent || rawContent.length === 0) {
-          await this.audio.alert('primary');
-          console.log('Cannot get more content from provider');
-          this.restartConfig();
-          return;
-        }
-
-        this.player = new Player(rawContent, this.audio, this.tts);
-        this.player.onPlay = onPlay;
-        this.player.onAction = onAction;
-        this.player.onEnded = onEnded;
-
-        await this.player.play();
-
-        this.users.server.emit('view:load-content', this.getClientContent());
-        this.users.server.emit('view:update-state', this.getConfig());
-        return;
-      }
-
-      if (cause === 'end:backward') {
-        console.log('Player ended backward');
-        const rawContent = await this.provider
-          .timeout(10000)
-          .emitWithAck('get-content', -1)
-          .catch(() => undefined);
-
-        if (!rawContent || rawContent.length === 0) {
-          await this.audio.alert('primary');
-          console.log('Cannot get more content from provider');
-          this.restartConfig();
-          return;
-        }
-
-        this.player = new Player(rawContent, this.audio, this.tts);
-
-        this.player.onPlay = onPlay;
-        this.player.onAction = onAction;
-        this.player.onEnded = onEnded;
-
-        this.player.setToLastIndex();
-
-        await this.player.play();
-
-        this.users.server.emit('view:load-content', this.getClientContent());
-        this.users.server.emit('view:update-state', this.getConfig());
-        return;
-      }
-    };
-
-    this.player.onPlay = onPlay;
-    this.player.onAction = onAction;
-    this.player.onEnded = onEnded;
-
-    await this.player.play();
+    await this.player.run();
 
     this.users.server.emit('view:load-content', this.getClientContent());
     this.users.server.emit('view:update-state', this.getConfig());

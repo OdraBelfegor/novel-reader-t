@@ -1,5 +1,5 @@
 import type { SentenceServer, TextProcessorResult } from '@common/types';
-import { PlayerAudioControl } from '.';
+import { PlayerAudioControl, type ReasonAudioEnd } from '.';
 import textProcessor from '../text-processor';
 import TextToSpeech from '../tts-use';
 
@@ -7,14 +7,18 @@ export type onEndedPlayer = (cause: 'stopped' | 'end:forward' | 'end:backward') 
 export type onPlayPlayer = () => void;
 export type onActionPlayer = () => void;
 
+/**
+ * TODO: Differentiate between actions and process, ways to stop process and delimit how much an action takes
+ *   - Action: 'play', 'stop', 'pause', 'forward', 'backward', 'seek'
+ *   - Process: 'play (sentence, download, reproduce audio)'
+ */
+
 export class Player {
   protected rawContent: string[];
   protected content: TextProcessorResult;
   protected currentIndex: number;
 
   protected state: 'IDLE' | 'PLAYING' | 'PAUSED';
-
-  // public onEnded?: (stopped: boolean) => void;
   public onEnded?: onEndedPlayer;
   public onPlay?: onPlayPlayer;
   public onAction?: onActionPlayer;
@@ -44,7 +48,7 @@ export class Player {
     this.content = textProcessor(rawContent);
   }
 
-  async play(): Promise<void> {
+  async run(): Promise<void> {
     // TODO: Make possible to cancel fetch audio
     if (this.currentIndex >= this.content.server.length) {
       console.log('All content played');
@@ -66,32 +70,32 @@ export class Player {
 
       if (sentence.audio) {
         console.log('Playing sentence:', [sentence.sentence]);
-
-        await this.audio.play(sentence.audio, ({ type }) => {
-          console.log('Audio ended, event:', { reason: type });
-
-          if (this.state === 'PAUSED') return;
-
-          this.state = 'IDLE';
-
-          if (type === 'ended') {
-            this.currentIndex++;
-            this.play();
-          }
-        });
+        this.audio.asynchronousPlay(sentence.audio).then(reason => this.handleAudioEnd(reason));
       } else {
+        // Todo: Handle need of audio. Pause the player?
         console.log('Cannot play sentence:', [sentence.sentence]);
         this.audio.alert('ping');
-        this.state = 'IDLE';
+        this.state = 'PAUSED';
       }
     } else {
       this.state = 'IDLE';
       this.currentIndex++;
 
-      this.play();
+      this.run();
     }
 
     this.onPlay?.();
+  }
+
+  private async handleAudioEnd(reason: ReasonAudioEnd): Promise<void> {
+    console.log('Audio ended, event:', { reason });
+    if (this.state === 'PAUSED') return;
+    this.state = 'IDLE';
+
+    if (reason === 'ended') {
+      this.currentIndex++;
+      this.run();
+    }
   }
 
   async stop(): Promise<void> {
@@ -120,10 +124,9 @@ export class Player {
 
   async resume(): Promise<void> {
     if (this.state === 'IDLE') return;
-
     if (this.state === 'PAUSED') {
       this.state = 'IDLE';
-      await this.play();
+      await this.run();
     }
 
     this.onAction?.();
@@ -131,42 +134,48 @@ export class Player {
 
   async backward(): Promise<void> {
     if (this.state === 'IDLE') return;
-
     if (this.state === 'PLAYING') await this.audio.stop();
-
-    // Deal with no readeable content
     if (this.currentIndex - 1 < 0) {
       this.onEnded?.('end:backward');
       return;
     }
-
     if (this.state === 'PAUSED') this.state = 'IDLE';
 
-    this.currentIndex--;
-    await this.play();
+    let toIndex = this.currentIndex - 1;
 
+    while (!this.content.server[toIndex].isReadable) {
+      toIndex--;
+      if (toIndex < 0) {
+        this.onEnded?.('end:backward');
+        return;
+      }
+    }
+
+    this.currentIndex = toIndex;
+    await this.run();
     this.onAction?.();
   }
 
   async forward(): Promise<void> {
     if (this.state === 'IDLE') return;
-
     if (this.state === 'PLAYING') await this.audio.stop();
     if (this.state === 'PAUSED') this.state = 'IDLE';
 
     this.currentIndex++;
-    await this.play();
+    await this.run();
 
     this.onAction?.();
   }
 
   async seek(index: number): Promise<void> {
-    await this.audio.stop();
-
     if (index < 0 || index >= this.content.server.length) return;
 
+    if (this.state === 'IDLE') return;
+    if (this.state === 'PLAYING') await this.audio.stop();
+    if (this.state === 'PAUSED') this.state = 'IDLE';
+
     this.currentIndex = index;
-    await this.play();
+    await this.run();
 
     this.onAction?.();
   }
