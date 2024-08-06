@@ -11,60 +11,7 @@ export class PlayerAudioControl {
     this.state = 'IDLE';
     this.users = users;
   }
-
-  async play(
-    audio: ArrayBuffer,
-    onEvent: (event: { type: ReasonAudioEnd }) => void,
-  ): Promise<void> {
-    if (this.state === 'PLAYING') {
-      console.log('Already playing, stopping first');
-      await this.stop();
-    }
-
-    const audioSocket = this.users.getUserByIndex(0);
-
-    if (!audioSocket) {
-      onEvent({ type: 'no-connection' });
-      return;
-    }
-
-    this.state = 'PLAYING';
-    // if(this.audioSocket !== audioSocket){}
-
-    try {
-      // * Timeout can be affected by network latency
-      await audioSocket.timeout(20000).emitWithAck('audio:play', audio);
-    } catch (error) {
-      onEvent({ type: 'no-connection' });
-      return;
-    }
-
-    this.audioSocket = audioSocket;
-
-    const handleAudioEnd = (type: 'ended' | 'stopped') => {
-      this.audioSocket = undefined;
-      this.state = 'IDLE';
-      onEvent({ type });
-      removeHandlers();
-    };
-
-    const handleDisconnection = () => {
-      this.audioSocket = undefined;
-      this.state = 'IDLE';
-      onEvent({ type: 'disconnected' });
-      removeHandlers();
-    };
-
-    const removeHandlers = () => {
-      audioSocket.off('audio:ended', handleAudioEnd);
-      audioSocket.off('disconnect', handleDisconnection);
-    };
-
-    audioSocket.on('audio:ended', handleAudioEnd);
-    audioSocket.on('disconnect', handleDisconnection);
-  }
-
-  async asynchronousPlay(audio: ArrayBuffer): Promise<ReasonAudioEnd> {
+  async play(audio: ArrayBuffer): Promise<ReasonAudioEnd> {
     if (this.state === 'PLAYING') {
       console.log('Already playing, stopping first');
       await this.stop();
@@ -79,6 +26,7 @@ export class PlayerAudioControl {
     try {
       await audioSocket.timeout(20000).emitWithAck('audio:play', audio);
     } catch (error) {
+      this.state = 'IDLE';
       return 'no-connection';
     }
     this.audioSocket = audioSocket;

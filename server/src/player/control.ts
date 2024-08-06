@@ -5,11 +5,16 @@ import type {
   ProviderServerToClientEvents,
   ProviderClientToServerEvents,
 } from '@common/socket-events';
-import type { PlayerState, ContentServer, ContentClient } from '@common/types';
+import type { PlayerState, ContentClient } from '@common/types';
 import TextToSpeech from '../tts-use';
-import { PlayerAudioControl } from '.';
-import { Player, type onActionPlayer, type onEndedPlayer, type onPlayPlayer } from './core';
-import type { PlayerUsers } from './users';
+import {
+  PlayerAudioControl,
+  Player,
+  type PlayerUsers,
+  type onActionPlayer,
+  type onEndedPlayer,
+  type onPlayPlayer,
+} from '.';
 
 export type PlayerSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 export type ProviderSocket = Socket<ProviderClientToServerEvents, ProviderServerToClientEvents>;
@@ -51,7 +56,7 @@ export class PlayerControl {
 
   private playerOnPlay: onPlayPlayer = () => {
     if (!this.player) return;
-    this.users.server.emit('view:highlight-sentence', this.player.getIndex());
+    this.users.server.emit('view:highlight-sentence', this.player.index);
   };
 
   private playerOnAction: onActionPlayer = () => {
@@ -65,10 +70,10 @@ export class PlayerControl {
     this.player = undefined;
 
     this.audio.alert('primary');
-    this.users.server.emit('view:update-state', this.getConfig());
-    this.users.server.emit('view:load-content', this.getClientContent());
 
     this.restartConfig();
+    this.users.server.emit('view:update-state', this.getConfig());
+    this.users.server.emit('view:load-content', this.getClientContent());
   };
 
   private playerOnEndedLoop: onEndedPlayer = async cause => {
@@ -142,7 +147,7 @@ export class PlayerControl {
 
     if (cause === 'end:backward') this.player.setToLastIndex();
 
-    await this.player.run();
+    await this.player.play();
 
     this.users.server.emit('view:load-content', this.getClientContent());
     this.users.server.emit('view:update-state', this.getConfig());
@@ -173,7 +178,7 @@ export class PlayerControl {
 
     this.player.onEnded = this.playerOnEndedSingle;
 
-    await this.player.run();
+    await this.player.play();
 
     this.users.server.emit('view:update-state', this.getConfig());
     this.users.server.emit('view:load-content', this.getClientContent());
@@ -205,6 +210,10 @@ export class PlayerControl {
 
     this.player = new Player(rawContent, this.audio, this.tts);
 
+    this.player.onPlay = this.playerOnPlay;
+    this.player.onAction = this.playerOnAction;
+    this.player.onEnded = this.playerOnEndedLoop;
+
     this.restartConfig();
 
     this.loop = true;
@@ -212,11 +221,7 @@ export class PlayerControl {
     this.loopCounter = null;
     this.loopLimit = null;
 
-    this.player.onPlay = this.playerOnPlay;
-    this.player.onAction = this.playerOnAction;
-    this.player.onEnded = this.playerOnEndedLoop;
-
-    await this.player.run();
+    await this.player.play();
 
     this.users.server.emit('view:load-content', this.getClientContent());
     this.users.server.emit('view:update-state', this.getConfig());
@@ -231,14 +236,7 @@ export class PlayerControl {
       return;
     }
 
-    const currentState = this.player.getState();
-    if (currentState === 'PAUSED') {
-      console.log(['Currently paused, resume it']);
-      await this.player.resume();
-      return;
-    }
-    console.log(['Currently playing, pause it']);
-    await this.player.pause();
+    await this.player.play();
   }
 
   async stop(): Promise<void> {
@@ -324,7 +322,7 @@ export class PlayerControl {
 
   getConfig(): PlayerState {
     return {
-      state: (this.player && this.player.getState()) || 'INACTIVE',
+      state: (this.player && this.player.state.name) || 'INACTIVE',
       loop: this.loop,
       loopActive: this.loopActive,
       loopLimit: this.loopLimit,
@@ -333,12 +331,12 @@ export class PlayerControl {
   }
 
   getClientContent(): ContentClient | [] {
-    if (this.player) return this.player.getClientContent();
+    if (this.player) return this.player.clientContent;
     return [];
   }
 
   getIndex(): number {
-    if (this.player) return this.player.getIndex();
+    if (this.player) return this.player.index;
     return 0;
   }
 

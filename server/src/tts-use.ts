@@ -26,7 +26,7 @@ export default class TextToSpeechUse {
       if (!res.ok) throw Error(res.statusText);
       return await res.arrayBuffer();
     } catch (error) {
-      if (retries == 1) throw error;
+      if (retries <= 1) throw error;
       await new Promise(resolve => setTimeout(resolve, delay));
       return this.synthesize(text, retries - 1, delay);
     }

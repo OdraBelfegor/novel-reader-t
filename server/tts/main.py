@@ -33,6 +33,7 @@ def generate_audio(text: str) -> numpy.ndarray:
 
 
 generate_audio("This is a test.")
+print("Test audio generated.")
 
 app = Flask(__name__)
 
@@ -87,7 +88,7 @@ def process_tts():
             format="wav",
         )
         wav.seek(0)
-        return send_file(wav, mimetype="audio/wav")
+        return send_file(wav, mimetype="audio/wav"), 200
     except Exception as e:
         print(f"\033[95mError processing TTS: {e}\033[00m")
         return jsonify({"error": str(e)}), 500
