@@ -29,6 +29,8 @@ export class Player {
 
   protected _stopped: boolean;
 
+  protected _currentlyPlaying: Promise<void>;
+
   /**
    *
    * @param rawContent  Content to be played
@@ -47,6 +49,12 @@ export class Player {
     this._stopped = false;
 
     this._content = textProcessor(rawContent);
+
+    this._currentlyPlaying = Promise.resolve();
+  }
+
+  async run(): Promise<void> {
+    await this._state.run();
   }
 
   async play(): Promise<void> {
@@ -72,7 +80,7 @@ export class Player {
   async seek(index: number): Promise<void> {
     if (index < 0 || index >= this._content.server.length) return;
 
-    await this.state.seek(index);
+    await this._state.seek(index);
     this.onAction?.();
   }
 
@@ -98,13 +106,13 @@ export class Player {
   }
 
   public async playSentence(index: number): Promise<void> {
-    this._state = new PlayingState(this);
+    this.state = new PlayingState(this);
     const sentence = this._content.server[index];
     const nextSentence: SentenceServer | undefined =
       index + 1 < this._content.server.length ? this._content.server[index + 1] : undefined;
 
     if (!sentence.isReadable) {
-      this._state = new IdleState(this);
+      this.state = new IdleState(this);
       this.currentIndex++;
       this._state.run();
       return;
@@ -117,19 +125,19 @@ export class Player {
     if (!sentence.audio) {
       console.log('Cannot play sentence:', [sentence.sentence]);
       await this.audio.alert('ping');
-      this._state = new PausedState(this);
+      this.state = new PausedState(this);
       return;
     }
 
     console.log('Playing sentence:', [sentence.sentence]);
-    this.audio.play(sentence.audio).then(reason => this.handleAudioEnd(reason));
+    this._currentlyPlaying = this.audio.play(sentence.audio).then(this.handleAudioEnd.bind(this));
   }
 
   private async handleAudioEnd(reason: ReasonAudioEnd): Promise<void> {
     console.log('Audio ended:', { reason });
     if (this._state.name === 'PAUSED') return;
 
-    this._state = new IdleState(this);
+    this.state = new IdleState(this);
 
     if (reason === 'ended') {
       this.currentIndex++;
@@ -137,11 +145,16 @@ export class Player {
     }
   }
 
+  get currentlyPlaying() {
+    return this._currentlyPlaying;
+  }
+
   get state() {
     return this._state;
   }
 
   set state(state: PlayerState) {
+    console.log([`Set state: ${state.name}`]);
     this._state = state;
   }
 
@@ -239,28 +252,14 @@ class IdleState extends PlayerState {
       return;
     }
 
-    // this.player.state = new PlayingState(this.player);
-
     await this.player.playSentence(index);
 
     this.player.onPlay?.();
   }
 
-  async handleAudioEnd(reason: ReasonAudioEnd): Promise<void> {
-    console.log('Audio ended:', { reason });
-    if (this.player.state.name === 'PAUSED') return;
-
-    this.player.state = new IdleState(this.player);
-
-    if (reason === 'ended') {
-      this.player.index++;
-      this.player.state.run();
-    }
-  }
-
   async play(): Promise<void> {
-    if (this.running) return;
-    return this.player.state.run();
+    if (!this.running) return this.player.state.run();
+    this.player.state = new PausedState(this.player);
   }
   async stop(): Promise<void> {
     this.player.stopped = true;
@@ -288,28 +287,34 @@ class PlayingState extends PlayerState {
     return;
   }
   async play(): Promise<void> {
-    const stopAudio = this.player.stopAudio();
+    // const stopAudio = this.player.stopAudio();
+    // this.player.state = new PausedState(this.player);
+    // await stopAudio;
+    await this.player.stopAudio();
+    await this.player.currentlyPlaying;
     this.player.state = new PausedState(this.player);
-    await stopAudio;
   }
   async stop(): Promise<void> {
     await this.player.stopAudio();
+    await this.player.currentlyPlaying;
     console.log('Player stopped:', this.player.state.name);
   }
   async backward(): Promise<void> {
     await this.player.stopAudio();
     this.handleBackward();
+    await this.player.currentlyPlaying;
     await this.player.state.run();
   }
   async forward(): Promise<void> {
     await this.player.stopAudio();
     this.player.index++;
+    await this.player.currentlyPlaying;
     await this.player.state.run();
-    this.player.onAction?.();
   }
   async seek(index: number): Promise<void> {
     await this.player.stopAudio();
     this.player.index = index;
+    await this.player.currentlyPlaying;
     await this.player.state.run();
   }
 

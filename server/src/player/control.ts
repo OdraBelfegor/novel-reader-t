@@ -147,7 +147,7 @@ export class PlayerControl {
 
     if (cause === 'end:backward') this.player.setToLastIndex();
 
-    await this.player.play();
+    await this.player.run();
 
     this.users.server.emit('view:load-content', this.getClientContent());
     this.users.server.emit('view:update-state', this.getConfig());
@@ -178,7 +178,7 @@ export class PlayerControl {
 
     this.player.onEnded = this.playerOnEndedSingle;
 
-    await this.player.play();
+    await this.player.run();
 
     this.users.server.emit('view:update-state', this.getConfig());
     this.users.server.emit('view:load-content', this.getClientContent());
@@ -221,7 +221,7 @@ export class PlayerControl {
     this.loopCounter = null;
     this.loopLimit = null;
 
-    await this.player.play();
+    await this.player.run();
 
     this.users.server.emit('view:load-content', this.getClientContent());
     this.users.server.emit('view:update-state', this.getConfig());
