@@ -1,6 +1,4 @@
 python-dotenv==1.0.1
-transformers==4.42.3
-accelerate==0.31.0
 Flask==3.0.3
 soundfile==0.12.1
-phonemizer==3.2.1
+TTS==0.22.0

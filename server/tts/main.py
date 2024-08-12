@@ -1,38 +1,28 @@
 import os
 import io
 import torch
+import numpy
 import hashlib
 import soundfile as sf
-import numpy
-from transformers import VitsModel, AutoTokenizer, logging
 from flask import Flask, request, jsonify, send_file
 from dotenv import load_dotenv
 import requests
+from TTS.api import TTS
 
 load_dotenv()
-logging.set_verbosity_error()
 
 MAIN_PORT = int(os.environ.get("PORT_SERVER", "8000"))
 PORT = int(os.environ.get("TTS_SERVER", "8080"))
-MODEL_PATH = os.environ.get("VITS_MODEL", "kakao-enterprise/vits-ljs")
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using {device} device.")
-print(f"Using {MODEL_PATH} model.")
 
-model = VitsModel.from_pretrained(MODEL_PATH).to(device)
-tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
-sample_rate = model.config.sampling_rate
+model_name = "tts_models/en/ljspeech/vits"
 
+tts = TTS(model_name).to(device)
+sample_rate = int(tts.synthesizer.output_sample_rate)
 
-def generate_audio(text: str) -> numpy.ndarray:
-    inputs = tokenizer(text, return_tensors="pt").to(device)
-    with torch.no_grad():
-        audio = model(**inputs).waveform
-    return audio.cpu().numpy().squeeze()
-
-
-generate_audio("This is a test.")
+tts.tts("This is a test.")
 print("Test audio generated.")
 
 app = Flask(__name__)
@@ -61,9 +51,6 @@ def get_short_hash(text):
 
 @app.route("/tts", methods=["POST", "GET"])
 def process_tts():
-    # if request.method not in ["POST", "GET"]:
-    #     return jsonify({"error": "Method not allowed"}), 405
-
     if request.method == "GET":
         text = request.args.get("text")
     else:
@@ -75,15 +62,11 @@ def process_tts():
     try:
         print(f"\033[96m Received text: {text}\033[00m")
 
-        audio = generate_audio(text)
-        audio = (audio * 32767).astype(numpy.int16)
+        audio = numpy.array(tts.tts(text))
         wav = io.BytesIO()
-
         sf.write(
             wav,
-            numpy.concatenate(
-                (audio, numpy.zeros(int(0.5 * sample_rate), dtype=audio.dtype))
-            ),
+            audio,
             samplerate=sample_rate,
             format="wav",
         )
