@@ -105,7 +105,9 @@ function textToReadable(text: string): string {
  */
 function isReadable(text: string): boolean {
   if (text.length === 0) return false;
-  if (text === '...') return true;
+  if (text === '...') return false;
+  // Large sequences of numbers cant be read
+  // if (text.length > 1 && text.replace(/[^a-zA-Z]/gi, '').length < 10) return true;
   if (text.length > 1 && text.replace(/[^a-zA-Z0-9]/gi, '').length > 0) return true;
   return false;
 }

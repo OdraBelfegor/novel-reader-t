@@ -105,11 +105,14 @@ export class Player {
     ]);
   }
 
+  private async getNextAudio(index: number): Promise<void> {
+    if (index + 1 >= this._content.server.length) return;
+    await this.getAudio(this._content.server[index + 1]);
+  }
+
   public async playSentence(index: number): Promise<void> {
     this.state = new PlayingState(this);
     const sentence = this._content.server[index];
-    const nextSentence: SentenceServer | undefined =
-      index + 1 < this._content.server.length ? this._content.server[index + 1] : undefined;
 
     if (!sentence.isReadable) {
       this.state = new IdleState(this);
@@ -118,7 +121,9 @@ export class Player {
       return;
     }
 
-    await Promise.all([this.getAudio(sentence), nextSentence && this.getAudio(nextSentence)]);
+    const currentAudio = this.getAudio(sentence);
+    const nextAudio = this.getNextAudio(index);
+    await currentAudio;
 
     if (this._state.name !== 'PLAYING') return;
 
@@ -130,7 +135,11 @@ export class Player {
     }
 
     console.log('Playing sentence:', [sentence.sentence]);
-    this._currentlyPlaying = this.audio.play(sentence.audio).then(this.handleAudioEnd.bind(this));
+
+    this._currentlyPlaying = waitAll([
+      this.audio.play(sentence.audio).then(this.handleAudioEnd.bind(this)),
+      nextAudio,
+    ]);
   }
 
   private async handleAudioEnd(reason: ReasonAudioEnd): Promise<void> {
@@ -353,4 +362,8 @@ class PausedState extends PlayerState {
   get name(): 'IDLE' | 'PLAYING' | 'PAUSED' {
     return 'PAUSED';
   }
+}
+
+async function waitAll(promises: Promise<any>[]): Promise<void> {
+  await Promise.all(promises);
 }
