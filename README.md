@@ -11,7 +11,7 @@ docker build -t odra_belf/novel-reader . --network="host"
 ### Docker Run
 
 ``` bash
-docker run --gpus all -p 5000:8000/tcp -v path/to/model:/model -e VITS_MODEL=/model -d odra_belf/novel-reader
+docker run --gpus all -p 5000:8000/tcp -v path/to/coqui_tts_models:/models -e TTS_HOME=/models -d odra_belf/novel-reader
 ```
 
 ## Instructions (Manual)
@@ -74,5 +74,6 @@ Localize path to directory and load in chrome based browser with developer mode,
 - [ ] Solve problems with pause after ending audio and before the next audio is send
 - [ ] Add way to change which viewer is the player of audio
 - [x] Add key bindings
-- [ ] Add [stay awake](https://developer.chrome.com/docs/capabilities/web-apis/wake-lock) to mantain the screen active
+- [x] Add [stay awake](https://developer.chrome.com/docs/capabilities/web-apis/wake-lock) to mantain the screen active
+- [ ] Search for a simple way to make the sever use HTTPS protocol, [stay awake](https://developer.chrome.com/docs/capabilities/web-apis/wake-lock?hl=es-419#best-practices) api needs it to work in devices connected from LAN (smartphone)
 - [ ] Redesign interface of web

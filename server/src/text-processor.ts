@@ -64,11 +64,20 @@ export default function textProcessor(raw: string[]): TextProcessorResult {
  * Transform paragraph to array of sentences
  *
  */
-function paragraphToSentences(paragraph: string): string[] {
+export function paragraphToSentences(paragraph: string): string[] {
   //   const sentences = paragraph.match(/[^\.\!\?\;\)\]]+[\.\!\?\;\)\]\"]+/gi);
   //   return sentences || [paragraph];
   if (paragraph.length <= 120) return [paragraph];
-  return nlp(paragraph).sentences().out('array');
+  const sentences: Array<string> = nlp(paragraph).sentences().out('array');
+  return sentences
+    .map(sentence => {
+      // Webnovel authors sometimes have bad grammar.
+      // Deal with sentences that are too long and don't contain '.'
+      // 120 * 5
+      if (sentence.length <= 600) return [sentence];
+      return sentence.split(/(?<=, )/g).map(s => s.trim());
+    })
+    .flat();
 }
 
 /**

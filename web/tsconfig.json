@@ -5,7 +5,8 @@
     "module": "ESNext",
     "resolveJsonModule": true,
     "lib": [
-      "DOM"
+      "DOM",
+      "ESNext",
     ],
     "allowJs": true,
     "checkJs": true,

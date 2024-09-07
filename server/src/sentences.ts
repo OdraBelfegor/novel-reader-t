@@ -1,13 +1,7 @@
-import textProcessor from './text-processor';
+import { paragraphToSentences } from './text-processor';
 
-const content = [
-  '"...Huff...Huff...This...isn\'t over, tree...huff..." Leo can feel his sweat rolling across his forehead and cheeks.',
-  '"Project: X is him," the older man pointed his finger at me. "Have you ever heard of a perfect human, Doc. Hazel?".',
-  '"Perfect human... What does Subject 0x have to do with it?".',
-];
+const paragraph =
+  "'Problems, problems and more problems, this situation we find ourselves in is complete garbage, how the hell could it happen, one moment we were celebrating the great victory that had happened against the catholic league and the next moment we showed up in this disgusting place they call the seven kingdoms.'";
 
-// console.log(JSON.stringify(textProcessor(content), null, 2));
-
-const edit = content[0].replace(/\.\.\.\w/g, match => ` ${match.substring(match.length - 1)}`);
-
-console.log(edit);
+console.log(paragraphToSentences(paragraph));
+// console.log(paragraph.split(/(?<=, )/g));

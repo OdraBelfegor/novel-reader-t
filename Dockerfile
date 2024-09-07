@@ -28,11 +28,12 @@ RUN --mount=type=cache,target=/var/cache/apt apt-get update && apt-get install -
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY . .
 
+COPY requirements.txt .
 RUN --mount=type=cache,target=/root/.cache/pip python -m pip install -r requirements.txt --ignore-installed && \
     python -m pip cache purge
 
+COPY . .
 RUN pnpm install && pnpm --filter ./web build && \
     pnpm --filter ./web copy:destroy && \
     rm -rf ./web/ && \

@@ -30,7 +30,7 @@ export default defineConfig(({ command }) => {
         transformIndexHtml(html, ctx) {
           return html.replace(
             '</head>',
-            '  <script src="/socket.io/socket.io.js"></script>\n</head>',
+            '\t<script src="/socket.io/socket.io.js"></script>\n</head>',
           );
         },
       },

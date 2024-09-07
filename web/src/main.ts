@@ -4,6 +4,7 @@ import './utils/user-config';
 import { socket } from './socket';
 import { AudioEmitter, AlertEmitter } from './utils/audio';
 import { audioControlStore } from '@/stores';
+import screenLock from './screen-lock';
 
 const audioEmitter = new AudioEmitter();
 const alertEmitter = new AlertEmitter();
@@ -59,10 +60,15 @@ socket.on('alert:play', (name, ack) => {
 
 socket.on('view:update-state', state => {
   console.log('view:update-state', state);
+
+  if (state.state === 'INACTIVE') {
+    screenLock.releaseWakeLock();
+  } else {
+    screenLock.requestWakeLock();
+  }
 });
 
+screenLock.requestWakeLock();
 socket.connect();
-
-// socket.emit('player:request-state');
 
 export default app;
