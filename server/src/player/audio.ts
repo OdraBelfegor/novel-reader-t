@@ -1,5 +1,6 @@
 import type { PlayerSocket, PlayerUsers } from '.';
 import { AlertType, EndType } from '@common/types';
+import { waitEventOrDisconnect } from '../extras';
 
 export type ReasonAudioEnd = 'ended' | 'stopped' | 'disconnected' | 'no-connection';
 
@@ -33,23 +34,22 @@ export class PlayerAudioControl {
 
     return new Promise(resolve => {
       const handleAudioEnd = (type: 'ended' | 'stopped') => {
-        cleanup();
         resolve(type);
       };
       const handleDisconnection = () => {
-        cleanup();
         resolve('disconnected');
       };
 
       const cleanup = () => {
         this.audioSocket = undefined;
         this.state = 'IDLE';
-        audioSocket.off('audio:ended', handleAudioEnd);
-        audioSocket.off('disconnect', handleDisconnection);
       };
 
-      audioSocket.on('audio:ended', handleAudioEnd);
-      audioSocket.on('disconnect', handleDisconnection);
+      waitEventOrDisconnect(audioSocket, 'audio:ended', {
+        onEvent: handleAudioEnd,
+        onDisconnect: handleDisconnection,
+        onCleanup: cleanup,
+      });
     });
   }
 

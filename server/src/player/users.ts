@@ -6,9 +6,12 @@ export class PlayerUsers {
   users: PlayerSocket[];
   server: Server<ClientToServerEvents, ServerToClientEvents>;
 
-  constructor(io: Server) {
+  constructor() {
     this.users = [];
-    this.server = io;
+  }
+
+  setServer(server: Server) {
+    this.server = server;
   }
 
   add(socket: PlayerSocket) {

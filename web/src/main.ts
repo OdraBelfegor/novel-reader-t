@@ -61,14 +61,20 @@ socket.on('alert:play', (name, ack) => {
 socket.on('view:update-state', state => {
   console.log('view:update-state', state);
 
-  if (state.state === 'INACTIVE') {
-    screenLock.releaseWakeLock();
-  } else {
-    screenLock.requestWakeLock();
-  }
+  // if (state.state === 'INACTIVE') {
+  //   screenLock.releaseWakeLock();
+  // } else {
+  //   screenLock.requestWakeLock();
+  // }
 });
 
 screenLock.requestWakeLock();
 socket.connect();
+
+document.addEventListener('visibilitychange', ev => {
+  if (document.visibilityState === 'visible') {
+    screenLock.requestWakeLock();
+  }
+});
 
 export default app;
