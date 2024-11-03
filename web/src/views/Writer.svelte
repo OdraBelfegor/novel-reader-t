@@ -1,11 +1,11 @@
 <script lang="ts">
   import IconButton from '@lib/ButtonIcon.svelte';
   import { socket } from '@/socket';
-  import { toPreviousView } from '@/stores';
+  import { toPreviousView } from '@/stores.svelte';
   import { increaseFontSize, decreaseFontSize } from '@/utils/user-config';
   import { GetIcon, PlayIcon, ReturnIcon, TextSizeDownIcon, TextSizeUpIcon } from '@/assets/svg';
 
-  let writer = '';
+  let writer = $state('');
   function onStart() {
     if (writer) {
       let text = writer.split('\n');
@@ -35,15 +35,15 @@
 
 <div class="actions-writer">
   <div>
-    <IconButton title="Increase font size" size="small" on:click={increaseFontSize}>
+    <IconButton title="Increase font size" size="small" onclick={increaseFontSize}>
       <TextSizeUpIcon />
     </IconButton>
-    <IconButton title="Decrease font size" size="small" on:click={decreaseFontSize}>
+    <IconButton title="Decrease font size" size="small" onclick={decreaseFontSize}>
       <TextSizeDownIcon />
     </IconButton>
   </div>
   <div>
-    <IconButton title="Start" on:click={onStart}>
+    <IconButton title="Start" onclick={onStart}>
       <PlayIcon />
     </IconButton>
   </div>
@@ -51,11 +51,11 @@
     <IconButton
       title="Content from provider at current page"
       size="small"
-      on:click={getContentFromProvider}
+      onclick={getContentFromProvider}
     >
       <GetIcon />
     </IconButton>
-    <IconButton title="Return" on:click={toPreviousView}>
+    <IconButton title="Return" onclick={toPreviousView}>
       <ReturnIcon />
     </IconButton>
   </div>

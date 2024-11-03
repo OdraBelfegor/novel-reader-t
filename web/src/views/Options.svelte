@@ -10,11 +10,11 @@
     LightThemeIcon,
     ReturnIcon,
   } from '@/assets/svg';
-  import { toPreviousView, playerStateStore, audioControlStore } from '@/stores';
+  import { toPreviousView, playerStateStore, audioControlStore } from '@/stores.svelte';
   import { socket } from '@/socket';
   import { onMount } from 'svelte';
 
-  const volume = derived(audioControlStore, $audioControlStore => $audioControlStore.volume);
+  let volume = derived(audioControlStore, $audioControlStore => $audioControlStore.volume);
   const playbackRate = derived(
     audioControlStore,
     $audioControlStore => $audioControlStore.playback,
@@ -23,7 +23,7 @@
   let volumeInput: HTMLInputElement;
   let playbackInput: HTMLInputElement;
 
-  let theme: 'light' | 'dark' = 'light';
+  let theme: 'light' | 'dark' = $state('light');
 
   onMount(() => {
     // @ts-ignore
@@ -79,11 +79,20 @@
       }, 1);
     } else socket.emit('player:remove-loop-limit');
   }
+
+  function preventDefault(fn: () => void) {
+    // @ts-ignore
+    return function (event) {
+      event.preventDefault();
+      // @ts-ignore
+      fn.call(this, event);
+    };
+  }
 </script>
 
 <div class="actions actions-options">
   {#if $loop}
-    <IconButton title="{$loopLimit === null ? 'Set' : 'Remove'} loop limit" on:click={controlLoop}>
+    <IconButton title="{$loopLimit === null ? 'Set' : 'Remove'} loop limit" onclick={controlLoop}>
       {#if $loopLimit !== null}
         <RemoveLoopLimitIcon />
       {:else}
@@ -91,14 +100,14 @@
       {/if}
     </IconButton>
   {/if}
-  <IconButton title="Switch theme" on:click={switchTheme}>
+  <IconButton title="Switch theme" onclick={switchTheme}>
     {#if theme === 'light'}
       <DarkThemeIcon />
     {:else}
       <LightThemeIcon />
     {/if}
   </IconButton>
-  <IconButton title="Return" on:click={toPreviousView}>
+  <IconButton title="Return" onclick={toPreviousView}>
     <ReturnIcon />
   </IconButton>
 </div>
@@ -128,13 +137,8 @@
       bind:this={playbackInput}
     />
   </div>
-  <button class="button-primary btn-text" on:click|preventDefault={saveConfig}>Save</button>
+  <button class="button-primary btn-text" onclick={preventDefault(saveConfig)}>Save</button>
 </form>
 
 <style>
-  /* .option-group{
-      & input {
-  
-      }
-    } */
 </style>

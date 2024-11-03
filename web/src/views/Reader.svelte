@@ -13,7 +13,7 @@
     contentStore,
     contentIndexStore,
     playerStateStore,
-  } from '@/stores';
+  } from '@/stores.svelte';
 
   import {
     TextSizeUpIcon,
@@ -71,7 +71,7 @@
 
   function controlProgressBar(
     e: UIEvent & {
-      currentTarget: EventTarget & HTMLDivElement;
+      currentTarget: HTMLDivElement;
     },
   ) {
     const target = e.currentTarget;
@@ -84,10 +84,9 @@
 
   function controlScrollbar(
     event: MouseEvent & {
-      currentTarget: EventTarget & HTMLDivElement;
+      currentTarget: HTMLDivElement;
     },
   ) {
-    if (!event.target) return;
     const rect = event.currentTarget.getBoundingClientRect();
     const x = event.clientX - rect.left;
 
@@ -116,32 +115,32 @@
   }
 </script>
 
-<svelte:window on:keydown={handleKeydownWindow} />
+<svelte:window onkeydown={handleKeydownWindow} />
 
 <div class="actions-reader">
   <div>
-    <IconButton title="Increase font size" size="small" on:click={increaseFontSize}>
+    <IconButton title="Increase font size" size="small" onclick={increaseFontSize}>
       <TextSizeUpIcon />
     </IconButton>
-    <IconButton title="Decrease font size" size="small" on:click={decreaseFontSize}>
+    <IconButton title="Decrease font size" size="small" onclick={decreaseFontSize}>
       <TextSizeDownIcon />
     </IconButton>
   </div>
   <div>
-    <IconButton title="Skip backward" size="small" on:click={() => socket.emit('player:backward')}>
+    <IconButton title="Skip backward" size="small" onclick={() => socket.emit('player:backward')}>
       <SkipStartIcon />
     </IconButton>
-    <IconButton title="Start/Resume/Pause" on:click={() => socket.emit('player:play')}>
+    <IconButton title="Start/Resume/Pause" onclick={() => socket.emit('player:play')}>
       {#if $state === 'PLAYING' || $state === 'IDLE'}
         <PauseIcon />
       {:else}
         <PlayIcon />
       {/if}
     </IconButton>
-    <IconButton title="Stop" on:click={() => socket.emit('player:stop')}>
+    <IconButton title="Stop" onclick={() => socket.emit('player:stop')}>
       <StopIcon />
     </IconButton>
-    <IconButton title="Skip forward" size="small" on:click={() => socket.emit('player:forward')}>
+    <IconButton title="Skip forward" size="small" onclick={() => socket.emit('player:forward')}>
       <SkipEndIcon />
     </IconButton>
   </div>
@@ -150,7 +149,7 @@
       <IconButton
         title="{$loopActive ? 'Break' : 'Continue'} loop"
         size="small"
-        on:click={() => socket.emit('player:toggle-loop')}
+        onclick={() => socket.emit('player:toggle-loop')}
       >
         {#if $loopActive}
           <UniqueIcon />
@@ -160,33 +159,35 @@
       </IconButton>
     {/if}
     <!-- TODO: Add Priority Button -->
-    <IconButton title="Options" on:click={() => goToView('options')}>
+    <IconButton title="Options" onclick={() => goToView('options')}>
       <OptionsIcon />
     </IconButton>
   </div>
 </div>
-<!-- svelte-ignore a11y-no-static-element-interactions  a11y-click-events-have-key-events -->
-<div class="progress-wrapper" tabindex="-1" on:click={controlScrollbar}>
+<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+<!-- svelte-ignore a11y_click_events_have_key_events -->
+<div class="progress-wrapper" tabindex="-1" onclick={controlScrollbar}>
   <div class="progress-bar" bind:this={progressBar} style:width={`${$progress}%`}></div>
 </div>
 <div
   id="content"
   class="text-area"
   class:without-content={!$contentLength}
-  on:scroll={controlProgressBar}
+  onscroll={controlProgressBar}
   bind:this={content}
 >
   {#if $contentStore.length !== 0}
     {#each $contentStore as paragraph}
       <p>
         {#each paragraph.sentences as sentence}
+          {@const sentenceId = sentence.id}
           <span
             role="button"
             tabindex="-1"
             style="cursor:pointer"
-            use:scrollIfActive={$contentIndexStore === sentence.id}
-            on:keydown={() => onClickSentence(sentence.id)}
-            on:click={() => onClickSentence(sentence.id)}>{`${sentence.sentence} `}</span
+            use:scrollIfActive={sentenceId === $contentIndexStore}
+            onkeydown={() => onClickSentence(sentence.id)}
+            onclick={() => onClickSentence(sentence.id)}>{`${sentence.sentence} `}</span
           >
         {/each}
       </p>
@@ -195,7 +196,7 @@
 </div>
 <div class="reader-bottom">
   {#if !$contentLength}
-    <IconButton title="Return" on:click={toPreviousView}>
+    <IconButton title="Return" onclick={toPreviousView}>
       <ReturnIcon />
     </IconButton>
   {/if}

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Home, Writer, Reader, Options } from './views';
-  import { currentView } from './stores';
+  import { currentView } from './stores.svelte';
 </script>
 
 {#if $currentView === 'home'}

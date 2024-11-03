@@ -1,10 +1,12 @@
 import './app.css';
-import App from './App.svelte';
 import './utils/user-config';
+import * as Views from './views';
+import { currentView } from './stores.svelte';
 import { socket } from './socket';
 import { AudioEmitter, AlertEmitter } from './utils/audio';
-import { audioControlStore } from '@/stores';
+import { audioControlStore } from '@/stores.svelte';
 import screenLock from './screen-lock';
+import { mount, unmount } from 'svelte';
 
 const audioEmitter = new AudioEmitter();
 const alertEmitter = new AlertEmitter();
@@ -14,8 +16,34 @@ audioControlStore.subscribe(({ volume, playback }) => {
   audioEmitter.setPlaybackRate(playback);
 });
 
-const app = new App({
-  target: document.getElementById('app') || document.body,
+let app = mount(Views.Home, {
+  target: document.getElementById('app')!,
+});
+
+currentView.subscribe((view: string) => {
+  unmount(app);
+  switch (view) {
+    case 'home':
+      app = mount(Views.Home, {
+        target: document.getElementById('app')!,
+      });
+      break;
+    case 'writer':
+      app = mount(Views.Writer, {
+        target: document.getElementById('app')!,
+      });
+      break;
+    case 'reader':
+      app = mount(Views.Reader, {
+        target: document.getElementById('app')!,
+      });
+      break;
+    case 'options':
+      app = mount(Views.Options, {
+        target: document.getElementById('app')!,
+      });
+      break;
+  }
 });
 
 socket.on('connect', () => {
@@ -60,12 +88,6 @@ socket.on('alert:play', (name, ack) => {
 
 socket.on('view:update-state', state => {
   console.log('view:update-state', state);
-
-  // if (state.state === 'INACTIVE') {
-  //   screenLock.releaseWakeLock();
-  // } else {
-  //   screenLock.requestWakeLock();
-  // }
 });
 
 screenLock.requestWakeLock();

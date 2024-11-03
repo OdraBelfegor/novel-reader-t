@@ -1,18 +1,20 @@
 <script lang="ts">
-  /** Title on hover */
-  export let title: string;
+  import type { HTMLButtonAttributes } from "svelte/elements";
 
-  /** Size */
-  export let size: 'small' | 'normal' = 'normal';
+  interface Props {
+    children: () => any;
+    size?: 'small' | 'normal';
+  }
+
+  let {children, size = 'normal', ...rest}: Props & HTMLButtonAttributes = $props();
 
   /** Callback when the button is clicked */
 </script>
 
 <button
   type="button"
-  {title}
-  on:click
+  {...rest}
   class="button-primary btn-icon {size === 'small' ? 'btn-small' : 'btn'}"
 >
-  <slot />
+  {@render children?.()}
 </button>

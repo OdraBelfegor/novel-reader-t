@@ -1,12 +1,12 @@
 <script lang="ts">
   import IconButton from '@lib/ButtonIcon.svelte';
   import { PlayIcon, WritteIcon, OptionsIcon } from '@/assets/svg';
-  import { goToView } from '@/stores';
+  import { goToView } from '@/stores.svelte';
   import { socket } from '@/socket';
 </script>
 
 <svelte:window
-  on:keydown={event => {
+  onkeydown={event => {
     // @ts-ignore
     if (['input', 'textarea'].includes(event.target.tagName.toLowerCase())) return;
     if (!event.altKey) return;
@@ -19,7 +19,7 @@
   <IconButton
     title="Start"
     size="normal"
-    on:click={() => {
+    onclick={() => {
       socket.emit('player:play');
       if (import.meta.env.DEV) {
         goToView('reader');
@@ -28,10 +28,10 @@
   >
     <PlayIcon />
   </IconButton>
-  <IconButton title="Go to write" size="normal" on:click={() => goToView('writer')}>
+  <IconButton title="Go to write" size="normal" onclick={() => goToView('writer')}>
     <WritteIcon />
   </IconButton>
-  <IconButton title="Go to options" size="normal" on:click={() => goToView('options')}>
+  <IconButton title="Go to options" size="normal" onclick={() => goToView('options')}>
     <OptionsIcon />
   </IconButton>
 </div>

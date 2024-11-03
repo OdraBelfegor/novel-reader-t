@@ -1,19 +1,32 @@
 <script lang="ts">
-  /** Title on hover */
-  export let title: string;
+  
 
-  /** Size */
-  export let size: 'small' | 'normal' = 'normal';
+  
 
-  /** Callback when the button is clicked */
-  export let onClick = () => {};
+  
+  interface Props {
+    /** Title on hover */
+    title: string;
+    /** Size */
+    size?: 'small' | 'normal';
+    /** Callback when the button is clicked */
+    onClick?: any;
+    children?: import('svelte').Snippet;
+  }
+
+  let {
+    title,
+    size = 'normal',
+    onClick = () => {},
+    children
+  }: Props = $props();
 </script>
 
 <button
   type="button"
   {title}
-  on:click={onClick}
+  onclick={onClick}
   class="button-primary btn-text {size === 'small' ? 'btn-small' : 'btn'}"
 >
-  <slot />
+  {@render children?.()}
 </button>
