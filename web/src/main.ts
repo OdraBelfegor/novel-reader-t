@@ -1,7 +1,8 @@
 import './app.css';
 import './utils/user-config';
 import * as Views from './views';
-import { currentView } from './stores.svelte';
+import Toast from './lib/Toast.svelte';
+import { currentView, toastStore } from './stores.svelte';
 import { socket } from './socket';
 import { AudioEmitter, AlertEmitter } from './utils/audio';
 import { audioControlStore } from '@/stores.svelte';
@@ -14,6 +15,10 @@ const alertEmitter = new AlertEmitter();
 audioControlStore.subscribe(({ volume, playback }) => {
   audioEmitter.setVolume(volume);
   audioEmitter.setPlaybackRate(playback);
+});
+
+const toast = mount(Toast, {
+  target: document.body,
 });
 
 let app = mount(Views.Home, {
@@ -46,24 +51,26 @@ currentView.subscribe((view: string) => {
   }
 });
 
-socket.on('connect', () => {
-  console.log('Connected');
-  document.body.style.border = '5px ridge var(--successColor)';
+// socket.on('connect', () => {
+//   console.log('Connected');
+//   document.body.style.border = 'var(--successColor) 5px ridge';
 
-  setTimeout(() => {
-    document.body.style.border = '5px ridge transparent';
-  }, 500);
-});
+//   setTimeout(() => {
+//     console.log('Removing border');
+//     document.body.style.border = 'whitesmoke 5px solid';
+//   }, 500);
+// });
 
 socket.on('disconnect', () => {
-  document.body.style.border = '5px ridge var(--alertColor)';
+  document.body.style.border = 'var(--alertColor) 5px ridge';
   audioEmitter.stop();
 });
 
 socket.on('alert:show', message => {
-  setTimeout(() => {
-    alert(message);
-  }, 1);
+  toastStore.add({
+    message,
+    type: 'info',
+  });
 });
 
 socket.on('audio:play', async (audio, ack) => {
@@ -97,6 +104,12 @@ document.addEventListener('visibilitychange', ev => {
   if (document.visibilityState === 'visible') {
     screenLock.requestWakeLock();
   }
+});
+
+toastStore.add({
+  message: 'this is a toast',
+  type: 'success',
+  timeout: 500000,
 });
 
 export default app;

@@ -14,6 +14,11 @@ docker build -t odra_belf/novel-reader . --network="host"
 docker run --gpus all -p 5000:8000/tcp -v path/to/coqui_tts_models:/models -e TTS_HOME=/models -d odra_belf/novel-reader
 ```
 
+For the proxy:
+``` bash
+docker run -p 80:80 -p 81:81 -p 443:443 -v ./data:/data -v ./letsencrypt:/etc/letsencrypt --name ngixproxy jc21/nginx-proxy-manager:latest
+```
+
 ## Instructions (Manual)
 
 if server/public doesn't exists

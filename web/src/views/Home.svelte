@@ -1,8 +1,11 @@
 <script lang="ts">
   import IconButton from '@lib/ButtonIcon.svelte';
+  import OptionsDrawer from './Options-Drawer.svelte';
   import { PlayIcon, WritteIcon, OptionsIcon } from '@/assets/svg';
   import { goToView } from '@/stores.svelte';
   import { socket } from '@/socket';
+
+  let optionsDrawer: OptionsDrawer;
 </script>
 
 <svelte:window
@@ -14,6 +17,8 @@
     if (keycode === 'KeyK') socket.emit('player:play');
   }}
 />
+
+<OptionsDrawer bind:this={optionsDrawer} />
 
 <div class="actions actions-home">
   <IconButton
@@ -31,7 +36,7 @@
   <IconButton title="Go to write" size="normal" onclick={() => goToView('writer')}>
     <WritteIcon />
   </IconButton>
-  <IconButton title="Go to options" size="normal" onclick={() => goToView('options')}>
+  <IconButton title="Go to options" size="normal" onclick={() => optionsDrawer.open()}>
     <OptionsIcon />
   </IconButton>
 </div>

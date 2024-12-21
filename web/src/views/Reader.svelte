@@ -6,28 +6,22 @@
   import scrollIntoView from 'scroll-into-view-if-needed';
   import { socket } from '@/socket';
   import IconButton from '@lib/ButtonIcon.svelte';
-  import { increaseFontSize, decreaseFontSize } from '@utils/user-config';
   import {
-    goToView,
-    toPreviousView,
     contentStore,
     contentIndexStore,
     playerStateStore,
+    toPreviousView,
   } from '@/stores.svelte';
-
   import {
-    TextSizeUpIcon,
-    TextSizeDownIcon,
     SkipStartIcon,
     PauseIcon,
     PlayIcon,
     StopIcon,
     SkipEndIcon,
-    UniqueIcon,
-    LoopIcon,
     OptionsIcon,
     ReturnIcon,
   } from '@/assets/svg';
+  import OptionsDrawer from './Options-Drawer.svelte';
 
   const progress = tweened(0, {
     duration: 300,
@@ -36,11 +30,20 @@
   let progressBar: HTMLDivElement;
   let content: HTMLDivElement;
 
+  let optionsDrawer: OptionsDrawer;
+
+  $effect.pre(() => {
+    document.addEventListener('keydown', handleKeydownWindow);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeydownWindow);
+    };
+  });
+  $effect(() => {
+    progressBar.style.width = `${$progress}%`;
+  });
+
   const state = derived(playerStateStore, $playerStateStore => $playerStateStore.state);
-  const loop = derived(playerStateStore, $playerStateStore => $playerStateStore.loop);
-  const loopActive = derived(playerStateStore, $playerStateStore => $playerStateStore.loopActive);
-  const loopCounter = derived(playerStateStore, $playerStateStore => $playerStateStore.loopCounter);
-  const loopLimit = derived(playerStateStore, $playerStateStore => $playerStateStore.loopLimit);
   const contentLength = derived(contentStore, $contentStore => $contentStore.length);
 
   contentLength.subscribe(async () => {
@@ -96,17 +99,15 @@
     content.scrollTop = contentHeight * progressPercentage;
   }
 
-  function handleKeydownWindow(
-    event: KeyboardEvent & {
-      currentTarget: EventTarget & Window;
-    },
-  ) {
+  function handleKeydownWindow(event: KeyboardEvent) {
+    console.log('Keydown:', event.code);
     const target = event.target as HTMLElement;
     if (['input', 'textarea'].includes(target.tagName.toLowerCase())) return;
 
     if (!event.altKey) return;
 
     const keycode = event.code;
+
     if (keycode === 'KeyJ') socket.emit('player:backward');
     if (keycode === 'KeyK') socket.emit('player:play');
     if (keycode === 'KeyL') socket.emit('player:forward');
@@ -115,154 +116,151 @@
   }
 </script>
 
-<svelte:window onkeydown={handleKeydownWindow} />
+<OptionsDrawer bind:this={optionsDrawer} />
 
-<div class="actions-reader">
-  <div>
-    <IconButton title="Increase font size" size="small" onclick={increaseFontSize}>
-      <TextSizeUpIcon />
-    </IconButton>
-    <IconButton title="Decrease font size" size="small" onclick={decreaseFontSize}>
-      <TextSizeDownIcon />
-    </IconButton>
-  </div>
-  <div>
-    <IconButton title="Skip backward" size="small" onclick={() => socket.emit('player:backward')}>
-      <SkipStartIcon />
-    </IconButton>
-    <IconButton title="Start/Resume/Pause" onclick={() => socket.emit('player:play')}>
-      {#if $state === 'PLAYING' || $state === 'IDLE'}
-        <PauseIcon />
-      {:else}
-        <PlayIcon />
-      {/if}
-    </IconButton>
-    <IconButton title="Stop" onclick={() => socket.emit('player:stop')}>
-      <StopIcon />
-    </IconButton>
-    <IconButton title="Skip forward" size="small" onclick={() => socket.emit('player:forward')}>
-      <SkipEndIcon />
-    </IconButton>
-  </div>
-  <div>
-    {#if $loop}
+<div class="reader">
+  <div class="top-reader" class:without-content={!$contentLength}>
+    <div class="menus">
       <IconButton
-        title="{$loopActive ? 'Break' : 'Continue'} loop"
+        title={$state === 'INACTIVE' ? 'Return' : 'Stop'}
         size="small"
-        onclick={() => socket.emit('player:toggle-loop')}
+        onclick={() => {
+          if ($state === 'INACTIVE') toPreviousView();
+          else socket.emit('player:stop');
+        }}
       >
-        {#if $loopActive}
-          <UniqueIcon />
+        {#if $state === 'INACTIVE'}
+          <ReturnIcon />
         {:else}
-          <LoopIcon />
+          <StopIcon />
         {/if}
       </IconButton>
-    {/if}
-    <!-- TODO: Add Priority Button -->
-    <IconButton title="Options" onclick={() => goToView('options')}>
-      <OptionsIcon />
-    </IconButton>
-  </div>
-</div>
-<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-<!-- svelte-ignore a11y_click_events_have_key_events -->
-<div class="progress-wrapper" tabindex="-1" onclick={controlScrollbar}>
-  <div class="progress-bar" bind:this={progressBar} style:width={`${$progress}%`}></div>
-</div>
-<div
-  id="content"
-  class="text-area"
-  class:without-content={!$contentLength}
-  onscroll={controlProgressBar}
-  bind:this={content}
->
-  {#if $contentStore.length !== 0}
-    {#each $contentStore as paragraph}
-      <p>
-        {#each paragraph.sentences as sentence}
-          {@const sentenceId = sentence.id}
-          <span
-            role="button"
-            tabindex="-1"
-            style="cursor:pointer"
-            use:scrollIfActive={sentenceId === $contentIndexStore}
-            onkeydown={() => onClickSentence(sentence.id)}
-            onclick={() => onClickSentence(sentence.id)}>{`${sentence.sentence} `}</span
-          >
+      <div class="info">
+        {#if $playerStateStore.loopLimit !== null && $playerStateStore.loopCounter !== null}
+          <span>Remaining: {$playerStateStore.loopLimit - $playerStateStore.loopCounter}</span>
+        {/if}
+      </div>
+      <IconButton title="Options" size="small" onclick={() => optionsDrawer.open()}>
+        <OptionsIcon />
+      </IconButton>
+    </div>
+
+    <div id="content" onscroll={controlProgressBar} bind:this={content}>
+      {#if $contentLength !== 0}
+        {#each $contentStore as paragraph}
+          <p>
+            {#each paragraph.sentences as sentence}
+              <!-- svelte-ignore a11y_click_events_have_key_events -->
+              <span
+                role="button"
+                tabindex="-1"
+                style="cursor: pointer"
+                onclick={() => onClickSentence(sentence.id)}
+                use:scrollIfActive={sentence.id === $contentIndexStore}
+                >{`${sentence.sentence} `}</span
+              >
+            {/each}
+          </p>
         {/each}
-      </p>
-    {/each}
-  {/if}
-</div>
-<div class="reader-bottom">
-  {#if !$contentLength}
-    <IconButton title="Return" onclick={toPreviousView}>
-      <ReturnIcon />
-    </IconButton>
-  {/if}
-  {#if $loopCounter !== null && $loopLimit !== null}
-    <p>Remainig chapters: {$loopLimit - $loopCounter}</p>
-  {/if}
+      {/if}
+    </div>
+  </div>
+  <div class="bottom-reader">
+    <div class="actions-reader">
+      <IconButton title="Backward" size="small" onclick={() => socket.emit('player:backward')}>
+        <SkipStartIcon />
+      </IconButton>
+      <IconButton
+        title={$state === 'PLAYING' ? 'Pause' : 'Play'}
+        onclick={() => socket.emit('player:play')}
+      >
+        {#if $state === 'PLAYING' || $state === 'IDLE'}
+          <PauseIcon />
+        {:else}
+          <PlayIcon />
+        {/if}
+      </IconButton>
+      <IconButton title="Forward" size="small" onclick={() => socket.emit('player:forward')}>
+        <SkipEndIcon />
+      </IconButton>
+    </div>
+    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="progress-wrapper" tabindex="-1" onclick={controlScrollbar}>
+      <div class="progress-bar" bind:this={progressBar}></div>
+    </div>
+  </div>
 </div>
 
 <style>
-  .actions-reader {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    column-gap: 1%;
-    margin-bottom: 0.5rem;
+  .top-reader {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background-color: var(--secondary-color);
+    border-radius: 0 0 2rem 2rem;
+    overflow: hidden;
+  }
 
-    & div {
-      display: flex;
-      align-items: center;
-      gap: 1%;
+  .bottom-reader {
+    display: flex;
+    flex-direction: column;
+  }
 
-      &:nth-child(1) {
-        justify-content: start;
-      }
-      &:nth-child(2) {
-        justify-content: center;
-        gap: 0.5% !important;
-      }
-      &:nth-child(3) {
-        justify-content: end;
-      }
+  #content {
+    font-family:
+      Helvetica Neue,
+      sans-serif,
+      monospace;
+    font-size: var(--text-size);
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    word-break: break-word;
+    padding: calc(var(--area-padding) + 0.5rem);
+
+    &::-webkit-scrollbar {
+      display: none;
     }
   }
 
-  .reader-bottom {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    column-gap: 1%;
+  .menus {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 1rem;
+  }
+
+  .info {
+    display: flex;
     align-items: center;
-    margin-top: 8px;
-    & p {
-      color: var(--senary-color);
-      font-size: 0.8rem;
-      font-weight: 700;
-      text-align: end;
-    }
+    color: var(--senary-color);
+    font-size: 0.8rem;
+    font-weight: 500;
+  }
+  .actions-reader {
+    display: flex;
+    justify-content: space-evenly;
+    margin: 0.5rem 0;
+    align-items: center;
+    padding: 0 1rem;
   }
 
-  .progress-bar,
-  .progress-wrapper {
-    border-radius: 5px;
+  .reader {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
   }
 
   .progress-wrapper {
     background-color: var(--quaternary-color);
-    margin-bottom: 2px;
-    border: 1px solid var(--tertiary-color);
+    /* border: 1px solid var(--tertiary-color); */
   }
 
   .progress-bar {
-    height: 10px;
+    height: 0.7rem;
     background-color: var(--tertiary-color);
-    width: 0%;
     pointer-events: none;
-  }
-
-  .text-area::-webkit-scrollbar {
-    display: none;
   }
 </style>

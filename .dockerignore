@@ -6,6 +6,8 @@ env
 .prettierrc
 .dockerignore
 Dockerfile
+data
+letsencrypt
 
 .git
 .gitignore

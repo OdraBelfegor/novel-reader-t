@@ -21,3 +21,7 @@ export { default as TextSizeUpIcon } from './text-size-up.svelte';
 export { default as UniqueIcon } from './unique.svelte';
 export { default as WindowIcon } from './window.svelte';
 export { default as WritteIcon } from './writte.svelte';
+export { default as InfoIcon } from './info.svelte';
+export { default as WarningIcon } from './warning.svelte';
+export { default as SuccessIcon } from './success.svelte';
+export { default as CloseIcon } from './close.svelte';
