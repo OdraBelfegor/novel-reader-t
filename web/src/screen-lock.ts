@@ -11,9 +11,8 @@ export function onReleaseWakeLock(cb: () => void) {
 
 // Function that attempts to request a screen wake lock.
 export async function requestWakeLock() {
-  if (wakeLock !== null) return;
   try {
-    wakeLock = await navigator.wakeLock.request();
+    wakeLock = await navigator.wakeLock.request('screen');
 
     wakeLock.addEventListener('release', () => onRelease());
 

@@ -106,10 +106,12 @@ document.addEventListener('visibilitychange', ev => {
   }
 });
 
-toastStore.add({
-  message: 'this is a toast',
-  type: 'success',
-  timeout: 500000,
-});
+if (import.meta.env.DEV) {
+  toastStore.add({
+    message: 'this is a toast',
+    type: 'success',
+    timeout: 500000,
+  });
+}
 
 export default app;
