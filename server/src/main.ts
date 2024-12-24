@@ -88,6 +88,12 @@ const startServers = serversGenerator(
         ack(await playerControl.getContentFromProvider());
       });
 
+      socket.on('audio:change-device', () => {
+        console.log('Audio device changed: ', socket.id);
+        playerUsers.prioritize(socket);
+        // playerControl.backward();
+      });
+
       socket.emit('view:update-state', playerControl.getConfig());
       socket.emit('view:load-content', playerControl.getClientContent());
       socket.emit('view:highlight-sentence', playerControl.getIndex());

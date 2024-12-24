@@ -13,6 +13,7 @@
     RemoveLoopLimitIcon,
     DarkThemeIcon,
     LightThemeIcon,
+    SoundIcon,
   } from '@/assets/svg';
   import { socket } from '@/socket';
 
@@ -70,15 +71,26 @@
 >
   <div class="container" class:open={isOpen}>
     <div class="controls">
-      <div class="font-controls">
-        <IconButton title="Increase font size" size="normal" onclick={increaseFontSize}>
-          <TextSizeUpIcon />
-        </IconButton>
-        <IconButton title="Decrease font size" size="normal" onclick={decreaseFontSize}>
-          <TextSizeDownIcon />
-        </IconButton>
+      <div class="grouping">
+        <div class="font-controls">
+          <IconButton title="Increase font size" size="normal" onclick={increaseFontSize}>
+            <TextSizeUpIcon />
+          </IconButton>
+          <IconButton title="Decrease font size" size="normal" onclick={decreaseFontSize}>
+            <TextSizeDownIcon />
+          </IconButton>
+        </div>
+        <div class="device-controls">
+          <IconButton
+            title="Listen here"
+            size="small"
+            onclick={() => socket.emit('audio:change-device')}
+          >
+            <SoundIcon />
+          </IconButton>
+        </div>
       </div>
-      <div class="actions-drawer">
+      <div class="grouping">
         <div class="group-1">
           {#if $playerStateStore.loop}
             <IconButton
@@ -192,7 +204,7 @@
     align-self: start;
   }
 
-  .actions-drawer {
+  .grouping {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;

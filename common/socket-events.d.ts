@@ -15,6 +15,7 @@ export interface ClientToServerEvents {
   'player:request-load-content': () => void;
   'audio:ended': (reason: EndType) => void;
   'request-provider': (ack: (text: string[] | []) => void) => void;
+  'audio:change-device': () => void;
 }
 
 export interface ServerToClientEvents {

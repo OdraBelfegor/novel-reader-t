@@ -51,18 +51,7 @@ currentView.subscribe((view: string) => {
   }
 });
 
-// socket.on('connect', () => {
-//   console.log('Connected');
-//   document.body.style.border = 'var(--successColor) 5px ridge';
-
-//   setTimeout(() => {
-//     console.log('Removing border');
-//     document.body.style.border = 'whitesmoke 5px solid';
-//   }, 500);
-// });
-
 socket.on('disconnect', () => {
-  document.body.style.border = 'var(--alertColor) 5px ridge';
   audioEmitter.stop();
 });
 
