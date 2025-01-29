@@ -8,6 +8,7 @@ env
 Dockerfile
 data
 letsencrypt
+__pycache__
 
 .git
 .gitignore

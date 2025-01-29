@@ -4,13 +4,11 @@
   "description": "",
   "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "remove:build": "rm -rf dist",
     "build": "tsc",
+    "remove:build": "rm -rf dist",
     "start": "concurrently -n tts,main -c green,blue --kill-others \"npm run tts\" \"node dist/main.js\"",
     "start:dev": "node --env-file=../.env dist/main.js",
-    "dev": "node -r ts-node/register --env-file=../.env src/main.ts",
-    "tts": "python tts/main.py"
+    "dev": "node -r ts-node/register --env-file=../.env src/main.ts"
   },
   "keywords": [],
   "author": "",

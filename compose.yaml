@@ -1,0 +1,30 @@
+name: novel-reader
+
+services:
+  main:
+    build: 
+      context: ./
+      dockerfile: ./server/Dockerfile
+    ports:
+      - "5000:8000"
+    networks:
+      - default
+  tts:
+    build:
+      context: ./
+      dockerfile: ./tts/Dockerfile
+    volumes:
+      - "${TTS_HOME}:/models"
+    networks:
+      - default
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+networks:
+  default:
+    driver: bridge

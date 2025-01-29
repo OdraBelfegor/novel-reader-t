@@ -19,6 +19,8 @@ import { validateCerts } from './extras';
 const PORT_MAIN: number = Number(process.env.PORT_SERVER) || 8000;
 const PORT_PROVIDER: number = Number(process.env.PORT_PROVIDER) || 8001;
 const TTS_PORT: number = Number(process.env.TTS_SERVER) || 8080;
+const TTS_HOSTNAME: string = process.env.PROD ? 'tts' : '127.0.0.1';
+const TTS_URL: string = `http://${TTS_HOSTNAME}:${TTS_PORT}`;
 
 const ioOptions = {
   cors: {
@@ -27,7 +29,7 @@ const ioOptions = {
 };
 
 const playerUsers = new PlayerUsers();
-const playerControl = new PlayerControl(playerUsers, `http://127.0.0.1:${TTS_PORT}`);
+const playerControl = new PlayerControl(playerUsers, TTS_URL);
 
 const startServers = serversGenerator(
   (app, socketServer) => {
@@ -35,7 +37,7 @@ const startServers = serversGenerator(
     app.use(express.static(path.join(__dirname, '../public')));
     app.use(
       '/api',
-      proxy(`http://127.0.0.1:${TTS_PORT}`, {
+      proxy(TTS_URL, {
         proxyErrorHandler: (err, res, next) => {
           switch (err && err.code) {
             case 'ECONNREFUSED': {

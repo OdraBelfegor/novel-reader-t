@@ -1,0 +1,13 @@
+{
+  "name": "tts",
+  "version": "1.0.0",
+  "description": "",
+  "private": true,
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "tts": "python tts/main.py"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

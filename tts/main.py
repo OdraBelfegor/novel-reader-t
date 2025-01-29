@@ -13,6 +13,7 @@ load_dotenv()
 
 MAIN_PORT = int(os.environ.get("PORT_SERVER", "8000"))
 PORT = int(os.environ.get("TTS_SERVER", "8080"))
+MAIN_HOSTNAME = "main" if os.environ.get("PROD") == "true" else "127.0.0.1"
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using {device} device.")
@@ -31,7 +32,7 @@ app = Flask(__name__)
 def notify_main_server():
     try:
         requests.post(
-            f"http://localhost:{MAIN_PORT}/tts-notice",
+            f"http://{MAIN_HOSTNAME}:{MAIN_PORT}/tts-notice",
             data={"Status": "TTS server online"},
             timeout=1000,
         )
@@ -83,4 +84,4 @@ def ping():
 
 
 if __name__ == "__main__":
-    app.run(debug=False, port=PORT)
+    app.run(host="0.0.0.0", debug=False, port=PORT)

@@ -92,7 +92,10 @@ export class Player {
     if (!sentence.isReadable) return;
     if (sentence.audio) return;
 
-    const audio = await this.tts.getAudio(sentence.sentence).catch(() => undefined);
+    const audio = await this.tts.getAudio(sentence.sentence).catch(error => {
+      console.log('Error getting audio:', error);
+      return undefined;
+    });
 
     if (!audio) return;
 
@@ -204,6 +207,8 @@ export class Player {
   }
 }
 
+type PlayerStateName = 'PLAYING' | 'PAUSED' | 'IDLE';
+
 abstract class PlayerState {
   constructor(protected player: Player) {}
 
@@ -214,7 +219,7 @@ abstract class PlayerState {
   abstract forward(): Promise<void>;
   abstract seek(index: number): Promise<void>;
 
-  abstract get name(): 'PLAYING' | 'PAUSED' | 'IDLE';
+  abstract get name(): PlayerStateName;
 
   handleBackward() {
     if (this.player.index - 1 < 0) {
@@ -286,7 +291,7 @@ class IdleState extends PlayerState {
     this.player.index = index;
   }
 
-  get name(): 'IDLE' | 'PLAYING' | 'PAUSED' {
+  get name(): PlayerStateName {
     return 'IDLE';
   }
 }
@@ -327,7 +332,7 @@ class PlayingState extends PlayerState {
     await this.player.state.run();
   }
 
-  get name(): 'IDLE' | 'PLAYING' | 'PAUSED' {
+  get name(): PlayerStateName {
     return 'PLAYING';
   }
 }
@@ -359,7 +364,7 @@ class PausedState extends PlayerState {
     this.player.index = index;
     await this.player.state.run();
   }
-  get name(): 'IDLE' | 'PLAYING' | 'PAUSED' {
+  get name(): PlayerStateName {
     return 'PAUSED';
   }
 }

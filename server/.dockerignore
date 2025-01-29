@@ -12,5 +12,3 @@ letsencrypt
 ext-try
 
 test_*.*
-
-tts/dependencies
