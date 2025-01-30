@@ -13,7 +13,7 @@ load_dotenv()
 
 MAIN_PORT = int(os.environ.get("PORT_SERVER", "8000"))
 PORT = int(os.environ.get("TTS_SERVER", "8080"))
-MAIN_HOSTNAME = "main" if os.environ.get("PROD") == "true" else "127.0.0.1"
+MAIN_HOSTNAME = os.environ.get("MAIN_HOSTNAME") or "127.0.0.1"
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using {device} device.")

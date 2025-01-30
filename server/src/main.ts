@@ -19,7 +19,7 @@ import { validateCerts } from './extras';
 const PORT_MAIN: number = Number(process.env.PORT_SERVER) || 8000;
 const PORT_PROVIDER: number = Number(process.env.PORT_PROVIDER) || 8001;
 const TTS_PORT: number = Number(process.env.TTS_SERVER) || 8080;
-const TTS_HOSTNAME: string = process.env.PROD ? 'tts' : '127.0.0.1';
+const TTS_HOSTNAME: string = process.env.TTS_HOSTNAME || '127.0.0.1';
 const TTS_URL: string = `http://${TTS_HOSTNAME}:${TTS_PORT}`;
 
 const ioOptions = {

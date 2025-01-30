@@ -2,11 +2,14 @@ name: novel-reader
 
 services:
   main:
-    build: 
+    build:
       context: ./
       dockerfile: ./server/Dockerfile
     ports:
       - "5000:8000"
+    environment:
+      - TTS_HOSTNAME="tts"
+      - MAIN_HOSTNAME="main"
     networks:
       - default
   tts:
@@ -15,6 +18,9 @@ services:
       dockerfile: ./tts/Dockerfile
     volumes:
       - "${TTS_HOME}:/models"
+    environment:
+      - TTS_HOSTNAME="tts"
+      - MAIN_HOSTNAME="main"
     networks:
       - default
     deploy:
@@ -23,7 +29,7 @@ services:
           devices:
             - driver: nvidia
               count: 1
-              capabilities: [gpu]
+              capabilities: [ gpu ]
 
 networks:
   default:
