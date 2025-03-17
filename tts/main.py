@@ -7,7 +7,8 @@ import soundfile as sf
 from flask import Flask, request, jsonify, send_file
 from dotenv import load_dotenv
 import requests
-from TTS.api import TTS
+# from TTS.api import TTS
+from kokoro_ import synthetize
 
 load_dotenv()
 
@@ -20,10 +21,12 @@ print(f"Using {device} device.")
 
 model_name = "tts_models/en/ljspeech/vits"
 
-tts = TTS(model_name).to(device)
-sample_rate = int(tts.synthesizer.output_sample_rate)
+# tts = TTS(model_name).to(device)
+# sample_rate = int(tts.synthesizer.output_sample_rate)
+sample_rate = 24000
 
-tts.tts("This is a test.")
+# tts.tts("This is a test.")
+synthetize("This is a test.")
 print("Test audio generated.")
 
 app = Flask(__name__)
@@ -63,7 +66,8 @@ def process_tts():
     try:
         print(f"\033[96m Received text: {text}\033[00m")
 
-        audio = numpy.array(tts.tts(text))
+        # audio = numpy.array(tts.tts(text))
+        audio = synthetize(text)
         wav = io.BytesIO()
         sf.write(
             wav,

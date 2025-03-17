@@ -3,6 +3,7 @@ FROM node:22 AS build
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
+RUN npm i -g corepack@latest
 
 WORKDIR /app
 
@@ -22,6 +23,7 @@ FROM node:22.11.0-alpine
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
+RUN npm i -g corepack@latest
 
 COPY --from=build /app/web/dist /public/
 COPY --from=build /app/server/dist /app/

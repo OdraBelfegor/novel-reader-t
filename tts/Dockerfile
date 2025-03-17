@@ -23,7 +23,7 @@ COPY requirements.txt .
 RUN --mount=type=cache,target=/root/.cache/pip python -m pip install -r requirements.txt --ignore-installed && \
     python -m pip cache purge
 
-COPY tts/main.py .
+COPY tts/ ./
 
 ENV TTS_HOME=/models
 ENV PROD=true

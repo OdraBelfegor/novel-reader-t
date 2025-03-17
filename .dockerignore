@@ -18,3 +18,4 @@ __pycache__
 **/dev-dist
 server/public/**/*
 extension
+**/dependencies

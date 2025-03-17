@@ -10,6 +10,7 @@ letsencrypt
 
 
 ext-try
+output/*
 
 test_*.*
 

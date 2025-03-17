@@ -6,10 +6,10 @@ services:
       context: ./
       dockerfile: ./server/Dockerfile
     ports:
-      - "5000:8000"
+      - 5000:8000
     environment:
-      - TTS_HOSTNAME="tts"
-      - MAIN_HOSTNAME="main"
+      - TTS_HOSTNAME=${TTS_HOSTNAME:-tts}
+      - MAIN_HOSTNAME=${MAIN_HOSTNAME:-main}
     networks:
       - default
   tts:
@@ -17,10 +17,10 @@ services:
       context: ./
       dockerfile: ./tts/Dockerfile
     volumes:
-      - "${TTS_HOME}:/models"
+      - ${TTS_HOME}:/models
     environment:
-      - TTS_HOSTNAME="tts"
-      - MAIN_HOSTNAME="main"
+      - TTS_HOSTNAME=${TTS_HOSTNAME:-tts}
+      - MAIN_HOSTNAME=${MAIN_HOSTNAME:-main}
     networks:
       - default
     deploy:

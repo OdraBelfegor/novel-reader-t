@@ -32,7 +32,7 @@ if not os.path.exists(model_cfg):
 ckpt_file = "/mnt/e/CoquiTTS/F5TTS_Base/model_1200000.safetensors"
 vocab_file = "/mnt/e/CoquiTTS/F5TTS_Base/vocab.txt"
 
-ref_audio = "/mnt/e/CoquiTTS/models/wav_voices/orphea.wav"
+ref_audio = "/mnt/e/CoquiTTS/models/wav_voices/melody1.wav"
 ref_text = ""
 
 text_to_generate = "Hello, my name is Odra. I am a mechatronics engineer and I am a student of the University of Mexico."
@@ -96,22 +96,22 @@ def infer_text(text_to_generate):
         final_wave = np.concatenate(generated_audio_segments)
         return final_wave, final_sample_rate
     
+if __name__ == "__main__":
+    start_time = time.time()
+    wave, sample_rate = infer_text(text_to_generate)
+    end_time = time.time()
+    print(f"Time taken: {end_time - start_time} seconds")
 
-start_time = time.time()
-wave, sample_rate = infer_text(text_to_generate)
-end_time = time.time()
-print(f"Time taken: {end_time - start_time} seconds")
+    sf.write("output.wav", wave, sample_rate)
+    start_time = time.time()
+    wave, sample_rate = infer_text("Ororo had finally created her character in Shady Sands along with Jean and Logan. They had opted to play together and fully see what this game had to offer. Currently the three of them were slowly navigating the start, talking to the people.")
+    end_time = time.time()
+    print(f"Time taken: {end_time - start_time} seconds")
 
-sf.write("output.wav", wave, sample_rate)
-start_time = time.time()
-wave, sample_rate = infer_text("Ororo had finally created her character in Shady Sands along with Jean and Logan. They had opted to play together and fully see what this game had to offer. Currently the three of them were slowly navigating the start, talking to the people.")
-end_time = time.time()
-print(f"Time taken: {end_time - start_time} seconds")
+    sf.write("output1.wav", wave, sample_rate)
+    start_time = time.time()
+    wave, sample_rate = infer_text("\"Storm, I am not able to read any of your minds here... And my powers are completely cut off, it is as if I don't have them.\"")
+    end_time = time.time()
+    print(f"Time taken: {end_time - start_time} seconds")
 
-sf.write("output1.wav", wave, sample_rate)
-start_time = time.time()
-wave, sample_rate = infer_text("\"Storm, I am not able to read any of your minds here... And my powers are completely cut off, it is as if I don't have them.\"")
-end_time = time.time()
-print(f"Time taken: {end_time - start_time} seconds")
-
-sf.write("output2.wav", wave, sample_rate)
+    sf.write("output2.wav", wave, sample_rate)
