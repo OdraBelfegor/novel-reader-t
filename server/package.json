@@ -15,7 +15,7 @@
   "license": "ISC",
   "dependencies": {
     "async-mutex": "^0.5.0",
-    "axios": "^1.6.7",
+    "axios": ">=1.8.2",
     "cli-color": "^2.0.4",
     "compromise": "^14.13.0",
     "concurrently": "^8.2.2",
