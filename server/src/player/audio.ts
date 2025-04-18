@@ -1,81 +1,84 @@
 import type { PlayerSocket, PlayerUsers } from '.';
 import { AlertType, EndType } from '@common/types';
 import { waitEventOrDisconnect } from '../extras';
+import { randomBytes } from 'crypto';
 
 export type ReasonAudioEnd = 'ended' | 'stopped' | 'disconnected' | 'no-connection';
 
-export class PlayerAudioControl {
-  state: 'IDLE' | 'PLAYING';
-  users: PlayerUsers;
-  audioSocket?: PlayerSocket;
-  constructor(users: PlayerUsers) {
-    this.state = 'IDLE';
-    this.users = users;
-  }
-  async play(audio: ArrayBuffer): Promise<ReasonAudioEnd> {
-    if (this.state === 'PLAYING') {
-      console.log('Already playing, stopping first');
-      await this.stop();
-    }
+export class Audio {
+  public buffer?: ArrayBuffer;
+  hash?: string;
+  playerSocket?: PlayerSocket;
+  private _end: (reason: ReasonAudioEnd) => void;
 
-    const audioSocket = this.users.getUserByIndex(0);
+  static playerUsers?: PlayerUsers;
+  static audioList: Map<string, Audio> = new Map();
 
-    if (!audioSocket) return 'no-connection';
+  async play(): Promise<ReasonAudioEnd> {
+    if (!Audio.playerUsers) throw new Error('No player users');
+    Audio.stopAll();
+    if (!this.buffer) throw new Error('No audio buffer');
+    if (!this.hash) this.hash = randomBytes(16).toString('hex');
 
-    this.state = 'PLAYING';
+    this.playerSocket = Audio.playerUsers.getUserByIndex(0);
+    if (!this.playerSocket) return 'no-connection';
 
     try {
-      await audioSocket.timeout(20000).emitWithAck('audio:play', audio);
+      await this.playerSocket.timeout(20000).emitWithAck('audio:play', this.hash, this.buffer);
     } catch (error) {
-      this.state = 'IDLE';
       return 'no-connection';
     }
-    this.audioSocket = audioSocket;
+
+    Audio.audioList.set(this.hash, this);
 
     return new Promise(resolve => {
-      const handleAudioEnd = (type: 'ended' | 'stopped') => {
-        resolve(type);
-      };
-      const handleDisconnection = () => {
-        resolve('disconnected');
-      };
-
-      const cleanup = () => {
-        this.audioSocket = undefined;
-        this.state = 'IDLE';
-      };
-
-      waitEventOrDisconnect(audioSocket, 'audio:ended', {
-        onEvent: handleAudioEnd,
-        onDisconnect: handleDisconnection,
-        onCleanup: cleanup,
-      });
-    });
+      this._end = resolve;
+    })
   }
 
-  async stop(): Promise<void> {
-    if (this.state === 'IDLE' || this.audioSocket === undefined) {
-      console.log(['No audio socket or in idle state']);
-      return;
+  async stop() {
+    if (!this.playerSocket) return;
+    try {
+      await this.playerSocket.timeout(20000).emitWithAck('audio:stop');
+    } catch (error) {
+      console.log(['Error stopping audio:'], error);
     }
-    await this.audioSocket.timeout(20000).emitWithAck('audio:stop');
   }
 
-  async alert(name: AlertType): Promise<void> {
-    let audioSocket: PlayerSocket | undefined;
+  get end() {
+    return this._end;
+  }
 
-    if (!this.audioSocket) audioSocket = this.users.getUserByIndex(0);
-    else audioSocket = this.audioSocket;
+  static async audioEnded(id: string, reason: EndType) {
+    if (!Audio.audioList.has(id)) return;
 
+    const audio = Audio.audioList.get(id) as Audio;
+    Audio.audioList.delete(id);
+    audio.end(reason);
+  }
+
+  static async userDisconnected(id: string) {
+    const audioList = Array.from(Audio.audioList.values());
+    audioList.map(audio => audio.playerSocket?.id === id && audio.end('disconnected'));
+  }
+
+  static async alert(name: AlertType): Promise<void> {
+    let audioSocket = Audio.playerUsers?.getUserByIndex(0);
     if (!audioSocket) return;
 
-    console.log('Play alert:', name);
+    console.log(['Play alert:'], name);
 
     try {
       await audioSocket.timeout(20000).emitWithAck('alert:play', name);
-      console.log('Alert played');
+      console.log(['Alert played']);
     } catch (error) {
-      console.log('Error playing alert:', error);
+      console.log(['Error playing alert:'], error);
     }
   }
+
+  static async stopAll() {
+    const audioList = Array.from(Audio.audioList.values());
+    return audioList.map(audio => audio.stop());
+  }
 }
+

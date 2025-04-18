@@ -8,7 +8,7 @@ export class AudioEmitter {
   protected volume?: number;
   protected playbackRate?: number;
 
-  async play(audio: ArrayBuffer, onEnded: onAudioEnded) {
+  async play(id: string, audio: ArrayBuffer, onEnded: onAudioEnded) {
     if (!this.audioContext || !this.gainNode) {
       // @ts-ignore
       this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -55,6 +55,84 @@ export class AudioEmitter {
   setPlaybackRate(rate: number) {
     this.playbackRate = rate;
     if (this.audioSourceNode) this.audioSourceNode.playbackRate.value = rate;
+  }
+}
+
+type AudioItem = {
+  source: AudioBufferSourceNode;
+  stopped: boolean;
+};
+
+export class AudioController {
+  audios: Map<string, AudioItem> = new Map();
+  audioContext: AudioContext;
+  gainNode: GainNode;
+
+  _volume: number;
+  _playbackRate: number;
+
+  constructor() {
+    // @ts-expect-error
+    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    this.gainNode = this.audioContext.createGain();
+    this.gainNode.connect(this.audioContext.destination);
+
+    this._volume = Number(localStorage.getItem('volumen') || '1');
+    this._playbackRate = Number(localStorage.getItem('playback') || '1');
+
+    this.gainNode.gain.value = this._volume;
+  }
+
+  async play(id: string, audio: ArrayBuffer, onEnded: onAudioEnded) {
+    console.log('called play audio', typeof audio);
+
+    const buffer = await this.audioContext.decodeAudioData(audio);
+    const source = this.audioContext.createBufferSource();
+    source.buffer = buffer;
+    source.connect(this.gainNode);
+    source.playbackRate.value = this._playbackRate;
+
+    this.audios.set(id, { source, stopped: false });
+
+    source.onended = () => {
+      if (!this.audios.has(id)) return
+
+      const audio = this.audios.get(id) as AudioItem;
+      this.audios.delete(id);
+
+      if (audio.stopped) onEnded('stopped');
+      else onEnded('ended');
+    };
+
+    source.start();
+  }
+
+  stop(id: string) {
+    if (!this.audios.has(id)) return;
+    const audio = this.audios.get(id) as AudioItem;
+    audio.stopped = true;
+    audio.source.stop();
+  }
+
+  stopAll() {
+    this.audios.forEach(audioItem => {
+      audioItem.stopped = true;
+      audioItem.source.stop();
+    });
+  }
+
+  set volume(volume: number) {
+    if (volume > 2 && volume <= 0) return;
+    localStorage.setItem('volumen', String(volume));
+    this._volume = volume;
+    this.gainNode.gain.value = volume;
+  }
+
+  set playbackRate(rate: number) {
+    if (rate > 2 && rate <= 0) return;
+    localStorage.setItem('playback', String(rate));
+    this._playbackRate = rate;
+    this.audios.forEach(audioItem => (audioItem.source.playbackRate.value = rate));
   }
 }
 

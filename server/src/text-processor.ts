@@ -1,4 +1,5 @@
 import nlp from 'compromise';
+import { Audio } from './player';
 import type {
   ContentServer,
   ContentClient,
@@ -45,6 +46,7 @@ export default function textProcessor(raw: string[]): TextProcessorResult {
         index: sentenceCount,
         sentence: textToReadable(sentence),
         isReadable: isReadable(sentence),
+        audio: new Audio(),
       });
 
       sentenceInParagraphCount++;

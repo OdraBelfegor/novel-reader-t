@@ -30,6 +30,7 @@ export class PlayerUsers {
     if (index > -1) {
       this.users.unshift(this.users.splice(index, 1)[0]);
     }
+    socket.broadcast.emit('alert:show', `Changed audio player to ${socket.id}`)
   }
 
   getUserById(id: string): PlayerSocket | undefined {

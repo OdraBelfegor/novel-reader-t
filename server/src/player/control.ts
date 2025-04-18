@@ -8,7 +8,8 @@ import type {
 import type { PlayerState, ContentClient } from '@common/types';
 import TextToSpeech from '../tts-use';
 import {
-  PlayerAudioControl,
+  // PlayerAudioControl,
+  Audio,
   Player,
   type PlayerUsers,
   type onActionPlayer,
@@ -22,7 +23,7 @@ export type ProviderSocket = Socket<ProviderClientToServerEvents, ProviderServer
 export class PlayerControl {
   users: PlayerUsers;
   tts: TextToSpeech;
-  audio: PlayerAudioControl;
+  // audio: PlayerAudioControl;
 
   provider?: ProviderSocket;
   loading: boolean;
@@ -37,7 +38,7 @@ export class PlayerControl {
     this.users = users;
 
     this.tts = new TextToSpeech(ttsUrl);
-    this.audio = new PlayerAudioControl(this.users);
+    // this.audio = new PlayerAudioControl(this.users);
 
     this.loop = false;
     this.loopActive = false;
@@ -69,7 +70,8 @@ export class PlayerControl {
 
     this.player = undefined;
 
-    this.audio.alert('primary');
+    // this.audio.alert('primary');
+    Audio.alert('primary');
 
     this.restartConfig();
     this.users.server.emit('view:update-state', this.getConfig());
@@ -102,13 +104,15 @@ export class PlayerControl {
       this.users.server.emit('view:load-content', this.getClientContent());
       this.users.server.emit('view:update-state', this.getConfig());
 
-      await this.audio.alert('primary');
+      // await this.audio.alert('primary');
+      await Audio.alert('primary');
 
       return;
     }
 
     // Continue reading
-    await this.audio.alert('secondary');
+    // await this.audio.alert('secondary');
+    await Audio.alert('secondary');
     this.users.server.emit('view:update-state', this.getConfig());
     this.users.server.emit('view:load-content', this.getClientContent());
 
@@ -134,18 +138,19 @@ export class PlayerControl {
     }
 
     if (!rawContent || rawContent.length === 0) {
-      await this.audio.alert('primary');
+      // await this.audio.alert('primary');
+      await Audio.alert('primary');
       console.log('Cannot get more content from provider');
       this.restartConfig();
       return;
     }
 
-    this.player = new Player(rawContent, this.audio, this.tts);
-    this.player.onPlay = this.playerOnPlay;
-    this.player.onAction = this.playerOnAction;
-    this.player.onEnded = this.playerOnEndedLoop;
+    this.player = new Player(rawContent, this.tts);
+    this.player.on('play', this.playerOnPlay.bind(this));
+    this.player.on('action', this.playerOnAction.bind(this));
+    this.player.on('ended', this.playerOnEndedLoop.bind(this));
 
-    if (cause === 'end:backward') this.player.setToLastIndex();
+    if (cause === 'end:backward') this.player.content.setToLastSentence()
 
     await this.player.run();
 
@@ -163,7 +168,7 @@ export class PlayerControl {
 
     console.log('Read this:', rawContent);
 
-    this.player = new Player(rawContent, this.audio, this.tts);
+    this.player = new Player(rawContent, this.tts);
 
     this.restartConfig();
 
@@ -172,11 +177,9 @@ export class PlayerControl {
     this.loopCounter = null;
     this.loopLimit = null;
 
-    this.player.onPlay = this.playerOnPlay;
-
-    this.player.onAction = this.playerOnAction;
-
-    this.player.onEnded = this.playerOnEndedSingle;
+    this.player.on('play', this.playerOnPlay.bind(this));
+    this.player.on('action', this.playerOnAction.bind(this));
+    this.player.on('ended', this.playerOnEndedSingle.bind(this));
 
     await this.player.run();
 
@@ -208,11 +211,11 @@ export class PlayerControl {
       return;
     }
 
-    this.player = new Player(rawContent, this.audio, this.tts);
+    this.player = new Player(rawContent, this.tts);
 
-    this.player.onPlay = this.playerOnPlay;
-    this.player.onAction = this.playerOnAction;
-    this.player.onEnded = this.playerOnEndedLoop;
+    this.player.on('play', this.playerOnPlay.bind(this));
+    this.player.on('action', this.playerOnAction.bind(this));
+    this.player.on('ended', this.playerOnEndedLoop.bind(this));
 
     this.restartConfig();
 
@@ -285,7 +288,12 @@ export class PlayerControl {
 
   async stopAudio(): Promise<void> {
     console.log(['Action stop audio']);
-    await this.audio.stop();
+    // await this.audio.stop();
+    await Audio.stopAll();
+  }
+
+  async audioEnded(reason: "ended" | 'stopped'): Promise<void> {
+
   }
 
   toggleLoop(): void {

@@ -13,7 +13,7 @@ import type {
   ProviderClientToServerEvents,
   ProviderServerToClientEvents,
 } from '@common/socket-events';
-import { PlayerControl, PlayerUsers } from './player';
+import { PlayerControl, PlayerUsers, Audio } from './player';
 import { validateCerts } from './extras';
 
 const PORT_MAIN: number = Number(process.env.PORT_SERVER) || 8000;
@@ -30,6 +30,7 @@ const ioOptions = {
 
 const playerUsers = new PlayerUsers();
 const playerControl = new PlayerControl(playerUsers, TTS_URL);
+Audio.playerUsers = playerUsers;
 
 const startServers = serversGenerator(
   (app, socketServer) => {
@@ -62,6 +63,7 @@ const startServers = serversGenerator(
       console.log(`User connected: ${socket.id}`, playerUsers.getIdList());
 
       socket.on('disconnect', () => {
+        Audio.userDisconnected(socket.id);
         playerUsers.remove(socket);
         console.log(`User disconnected: ${socket.id}`, playerUsers.getIdList());
       });
@@ -89,6 +91,8 @@ const startServers = serversGenerator(
       socket.on('request-provider', async ack => {
         ack(await playerControl.getContentFromProvider());
       });
+
+      socket.on('audio:ended', Audio.audioEnded.bind(Audio));
 
       socket.on('audio:change-device', () => {
         console.log('Audio device changed: ', socket.id);

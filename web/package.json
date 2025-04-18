@@ -12,7 +12,6 @@
     "copy:destroy": "find ../server/public -type f -not -name .gitignore -delete -print  && cp -r dist/* ../server/public "
   },
   "devDependencies": {
-    "@sveltejs/vite-plugin-svelte": "^4.0.0",
     "@tsconfig/svelte": "^5.0.4",
     "@vite-pwa/assets-generator": "^0.2.6",
     "autoprefixer": "^10.4.20",
@@ -28,5 +27,8 @@
     "vite": "^5.4.10",
     "vite-plugin-pwa": "^0.20.5",
     "vite-plugin-socket-io": "^1.0.2"
+  },
+  "dependencies": {
+    "@sveltejs/vite-plugin-svelte": "^4.0.0"
   }
 }

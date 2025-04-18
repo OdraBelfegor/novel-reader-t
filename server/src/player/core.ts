@@ -1,12 +1,20 @@
 import type { SentenceServer, TextProcessorResult } from '@common/types';
-import { PlayerAudioControl, type ReasonAudioEnd } from '.';
-import textProcessor from '../text-processor';
 import TextToSpeech from '../tts-use';
+import { ContentControl, Audio, type ReasonAudioEnd } from '.';
+import { EventEmitter } from 'events';
+import { waitAll } from '../extras';
 
 export type onEndedPlayer = (cause: 'stopped' | 'end:forward' | 'end:backward') => void;
 export type onPlayPlayer = () => void;
 export type onActionPlayer = () => void;
 
+type PlayerEvents = {
+  ended: Parameters<onEndedPlayer>;
+  play: Parameters<onPlayPlayer>;
+  action: Parameters<onActionPlayer>;
+};
+
+// States: playing, paused
 /**
  * TODO: Differentiate between actions and process, ways to stop process and delimit how much an action takes
  *   - Action: 'play', 'stop', 'pause', 'forward', 'backward', 'seek'
@@ -14,22 +22,15 @@ export type onActionPlayer = () => void;
  */
 
 export class Player {
-  protected rawContent: string[];
-  protected _content: TextProcessorResult;
-  protected currentIndex: number;
-
+  protected _content: ContentControl;
   // protected _state: 'IDLE' | 'PLAYING' | 'PAUSED';
   protected _state: PlayerState;
-  public onEnded?: onEndedPlayer;
-  public onPlay?: onPlayPlayer;
-  public onAction?: onActionPlayer;
-
-  protected audio: PlayerAudioControl;
   protected tts: TextToSpeech;
-
-  protected _stopped: boolean;
+  public stopped: boolean;
 
   protected _currentlyPlaying: Promise<void>;
+
+  public eventEmitter = new EventEmitter<PlayerEvents>();
 
   /**
    *
@@ -37,18 +38,14 @@ export class Player {
    * @param audio Audio control
    * @param tts Text-to-speech to use
    */
-  constructor(rawContent: string[], audio: PlayerAudioControl, tts: TextToSpeech) {
-    this.rawContent = rawContent;
-    this.currentIndex = 0;
-
-    this.audio = audio;
+  constructor(rawContent: string[], tts: TextToSpeech) {
     this.tts = tts;
 
     this._state = new IdleState(this);
 
-    this._stopped = false;
+    this.stopped = false;
 
-    this._content = textProcessor(rawContent);
+    this._content = new ContentControl(rawContent);
 
     this._currentlyPlaying = Promise.resolve();
   }
@@ -59,38 +56,38 @@ export class Player {
 
   async play(): Promise<void> {
     await this._state.play();
-    this.onAction?.();
+    this.emit('action');
   }
 
   async stop(): Promise<void> {
     await this._state.stop();
-    this.onEnded?.('stopped');
+    this.emit('ended', 'stopped');
   }
 
   async backward(): Promise<void> {
     await this._state.backward();
-    this.onAction?.();
+    this.emit('action');
   }
 
   async forward(): Promise<void> {
     await this._state.forward();
-    this.onAction?.();
+    this.emit('action');
   }
 
   async seek(index: number): Promise<void> {
-    if (index < 0 || index >= this._content.server.length) return;
+    if (index < 0 || index >= this._content.serverContent.length) return;
 
     await this._state.seek(index);
-    this.onAction?.();
+    this.emit('action');
   }
 
   public stopAudio() {
-    return this.audio.stop();
+    // return this.audio.stop();
+    return Audio.stopAll();
   }
 
   private async getAudio(sentence: SentenceServer): Promise<void> {
-    if (!sentence.isReadable) return;
-    if (sentence.audio) return;
+    if (!sentence.isReadable || sentence.audio.buffer) return;
 
     const audio = await this.tts.getAudio(sentence.sentence).catch(error => {
       console.log('Error getting audio:', error);
@@ -99,8 +96,8 @@ export class Player {
 
     if (!audio) return;
 
-    sentence.audio = audio;
-    console.log('Getting audio for:', [
+    sentence.audio.buffer = audio;
+    console.log('Got audio for:', [
       {
         index: sentence.index,
         sentence: sentence.sentence,
@@ -109,18 +106,22 @@ export class Player {
   }
 
   private async getNextAudio(index: number): Promise<void> {
-    if (index + 1 >= this._content.server.length) return;
-    await this.getAudio(this._content.server[index + 1]);
+    if (index + 1 >= this._content.serverContent.length) return;
+    await this.getAudio(this._content.serverContent[index + 1]);
   }
 
   public async playSentence(index: number): Promise<void> {
     this.state = new PlayingState(this);
-    const sentence = this._content.server[index];
+    const sentence = this._content.currentSentence;
 
     if (!sentence.isReadable) {
       this.state = new IdleState(this);
-      this.currentIndex++;
-      this._state.run();
+      const ended = this._content.next();
+      if (ended)
+        this.emit('ended', 'end:forward');
+      else
+        this._state.run();
+
       return;
     }
 
@@ -132,7 +133,8 @@ export class Player {
 
     if (!sentence.audio) {
       console.log('Cannot play sentence:', [sentence.sentence]);
-      await this.audio.alert('ping');
+      // await this.audio.alert('ping');
+      await Audio.alert('ping');
       this.state = new PausedState(this);
       return;
     }
@@ -140,25 +142,42 @@ export class Player {
     console.log('Playing sentence:', [sentence.sentence]);
 
     this._currentlyPlaying = waitAll([
-      this.audio.play(sentence.audio).then(this.handleAudioEnd.bind(this)),
+      // this.audio.play(sentence.audio).then(this.handleAudioEnd.bind(this)),
+      sentence.audio.play().then(this.handleAudioEnd.bind(this)),
       nextAudio,
     ]);
   }
 
   private async handleAudioEnd(reason: ReasonAudioEnd): Promise<void> {
     console.log('Audio ended:', { reason });
-    if (this._state.name === 'PAUSED') return;
+    // if (this._state.name === 'PAUSED') return;
+
+    if (reason === 'disconnected' || reason === 'no-connection') {
+      this.state = new PausedState(this);
+      this.emit('action');
+      return
+    }
 
     this.state = new IdleState(this);
 
     if (reason === 'ended') {
-      this.currentIndex++;
+      const ended = this._content.next();
+      console.log(['Ended:', ended]);
+
+      if (ended) {
+        console.log('All content played');
+        this.emit('ended', 'end:forward');
+        return;
+      }
+
       await this._state.run();
     }
   }
 
   get currentlyPlaying() {
     return this._currentlyPlaying;
+
+
   }
 
   get state() {
@@ -168,14 +187,15 @@ export class Player {
   set state(state: PlayerState) {
     console.log([`Set state: ${state.name}`]);
     this._state = state;
+    // this.emit('action');
   }
 
   get index() {
-    return this.currentIndex;
+    return this._content.currentIndex;
   }
 
   set index(index: number) {
-    this.currentIndex = index;
+    this._content.seek(index);
   }
 
   get content() {
@@ -183,34 +203,30 @@ export class Player {
   }
 
   get serverContent() {
-    return this._content.server;
+    return this._content.serverContent;
   }
 
   get clientContent() {
-    return this._content.client;
+    return this._content.clientContent;
   }
 
-  get stopped() {
-    return this._stopped;
+  get on() {
+    return this.eventEmitter.on.bind(this);
   }
 
-  set stopped(stopped: boolean) {
-    this._stopped = stopped;
+  get emit() {
+    return this.eventEmitter.emit.bind(this);
   }
 
   getRawContent() {
-    return this.rawContent;
-  }
-
-  setToLastIndex() {
-    this.currentIndex = this._content.server.length - 1;
+    return this._content.rawContent;
   }
 }
 
 type PlayerStateName = 'PLAYING' | 'PAUSED' | 'IDLE';
 
 abstract class PlayerState {
-  constructor(protected player: Player) {}
+  constructor(protected player: Player) { }
 
   abstract run(): Promise<void>;
   abstract play(): Promise<void>;
@@ -218,27 +234,7 @@ abstract class PlayerState {
   abstract backward(): Promise<void>;
   abstract forward(): Promise<void>;
   abstract seek(index: number): Promise<void>;
-
   abstract get name(): PlayerStateName;
-
-  handleBackward() {
-    if (this.player.index - 1 < 0) {
-      this.player.onEnded?.('end:backward');
-      return;
-    }
-
-    let toIndex = this.player.index - 1;
-
-    while (!this.player.serverContent[toIndex].isReadable) {
-      toIndex--;
-      if (toIndex < 0) {
-        this.player.onEnded?.('end:backward');
-        return;
-      }
-    }
-
-    this.player.index = toIndex;
-  }
 }
 
 class IdleState extends PlayerState {
@@ -260,15 +256,9 @@ class IdleState extends PlayerState {
 
     const index = this.player.index;
 
-    if (index >= this.player.serverContent.length) {
-      console.log('All content played');
-      this.player.onEnded?.('end:forward');
-      return;
-    }
-
     await this.player.playSentence(index);
 
-    this.player.onPlay?.();
+    this.player.emit('play');
   }
 
   async play(): Promise<void> {
@@ -280,11 +270,15 @@ class IdleState extends PlayerState {
   }
   async backward(): Promise<void> {
     // if(this.running) return;
-    this.handleBackward();
+    const ended = this.player.content.previous();
+    if (ended) {
+      this.player.emit('ended', 'end:backward');
+      return;
+    }
   }
   async forward(): Promise<void> {
     // if(this.running) return;
-    this.player.index++;
+    this.player.content.next();
   }
   async seek(index: number): Promise<void> {
     // if(this.running) return;
@@ -315,14 +309,21 @@ class PlayingState extends PlayerState {
   }
   async backward(): Promise<void> {
     await this.player.stopAudio();
-    this.handleBackward();
     await this.player.currentlyPlaying;
+    const ended = this.player.content.previous();
+    if (ended) {
+      this.player.emit('ended', 'end:backward');
+    }
     await this.player.state.run();
   }
   async forward(): Promise<void> {
     await this.player.stopAudio();
-    this.player.index++;
     await this.player.currentlyPlaying;
+    const ended = this.player.content.next();
+    if (ended) {
+      this.player.emit('ended', 'end:forward');
+      return;
+    }
     await this.player.state.run();
   }
   async seek(index: number): Promise<void> {
@@ -351,12 +352,20 @@ class PausedState extends PlayerState {
   }
   async backward(): Promise<void> {
     this.player.state = new IdleState(this.player);
-    this.handleBackward();
+    const ended = this.player.content.previous();
+    if (ended) {
+      this.player.emit('ended', 'end:backward');
+      return;
+    }
     await this.player.state.run();
   }
   async forward(): Promise<void> {
     this.player.state = new IdleState(this.player);
-    this.player.index++;
+    const ended = this.player.content.next();
+    if (ended) {
+      this.player.emit('ended', 'end:forward');
+      return;
+    }
     await this.player.state.run();
   }
   async seek(index: number): Promise<void> {
@@ -369,6 +378,4 @@ class PausedState extends PlayerState {
   }
 }
 
-async function waitAll(promises: Promise<any>[]): Promise<void> {
-  await Promise.all(promises);
-}
+

@@ -40,8 +40,8 @@ export default defineConfig(({ command }) => {
           name: 'Novel Reader Client',
           short_name: 'NovelReader',
           description: 'Client to read novels with local tts server and connect to other devices',
-          theme_color: '#ffffff',
-          display_override: ['fullscreen', 'minimal-ui'],
+          theme_color: '#000000',
+          background_color: '#000000',
           display: 'standalone',
           icons: [
             {

@@ -4,17 +4,20 @@ import * as Views from './views';
 import Toast from './lib/Toast.svelte';
 import { currentView, toastStore } from './stores.svelte';
 import { socket } from './socket';
-import { AudioEmitter, AlertEmitter } from './utils/audio';
+import { AudioEmitter, AlertEmitter, AudioController } from './utils/audio';
 import { audioControlStore } from '@/stores.svelte';
 import screenLock from './screen-lock';
 import { mount, unmount } from 'svelte';
 
-const audioEmitter = new AudioEmitter();
+// const audioEmitter = new AudioEmitter();
+const audioController = new AudioController();
 const alertEmitter = new AlertEmitter();
 
 audioControlStore.subscribe(({ volume, playback }) => {
-  audioEmitter.setVolume(volume);
-  audioEmitter.setPlaybackRate(playback);
+  audioController.volume = volume;
+  audioController.playbackRate = playback;
+  // audioEmitter.setVolume(volume);
+  // audioEmitter.setPlaybackRate(playback);
 });
 
 const toast = mount(Toast, {
@@ -52,7 +55,8 @@ currentView.subscribe((view: string) => {
 });
 
 socket.on('disconnect', () => {
-  audioEmitter.stop();
+  // audioEmitter.stop();
+  audioController.stopAll();
 });
 
 socket.on('alert:show', message => {
@@ -62,10 +66,14 @@ socket.on('alert:show', message => {
   });
 });
 
-socket.on('audio:play', async (audio, ack) => {
-  await audioEmitter.play(audio, type => {
+socket.on('audio:play', async (id, audio, ack) => {
+  // await audioEmitter.play(audio, type => {
+  //   console.log('Audio ended', { type });
+  //   if (socket.connected) socket.emit('audio:ended', type);
+  // });
+  await audioController.play(id, audio, type => {
     console.log('Audio ended', { type });
-    if (socket.connected) socket.emit('audio:ended', type);
+    if (socket.connected) socket.emit('audio:ended', id, type);
   });
 
   ack();
@@ -73,7 +81,8 @@ socket.on('audio:play', async (audio, ack) => {
 
 socket.on('audio:stop', ack => {
   console.log('Audio ordered to stop');
-  audioEmitter.stop();
+  // audioEmitter.stop();
+  audioController.stopAll();
   setTimeout(ack, 10);
 });
 

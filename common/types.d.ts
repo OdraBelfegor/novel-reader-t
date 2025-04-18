@@ -1,3 +1,5 @@
+import type { Audio } from "../server/src/player";
+
 export type AlertType = 'primary' | 'secondary' | 'ping';
 
 export interface PlayerState {
@@ -18,7 +20,7 @@ export type SentenceServer = {
   index: number;
   sentence: string;
   isReadable: boolean;
-  audio?: ArrayBuffer;
+  audio: Audio;
 };
 
 export type ContentServer = SentenceServer[];

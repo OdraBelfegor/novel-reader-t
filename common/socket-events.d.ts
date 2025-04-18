@@ -13,13 +13,13 @@ export interface ClientToServerEvents {
   'player:remove-loop-limit': () => void;
   'player:request-state': () => void;
   'player:request-load-content': () => void;
-  'audio:ended': (reason: EndType) => void;
+  'audio:ended': (id: string, reason: EndType) => void;
   'request-provider': (ack: (text: string[] | []) => void) => void;
   'audio:change-device': () => void;
 }
 
 export interface ServerToClientEvents {
-  'audio:play': (audio: ArrayBuffer, ack: (...args: any[]) => void) => void;
+  'audio:play': (id: string, audio: ArrayBuffer, ack: (...args: any[]) => void) => void;
   'audio:stop': (ack: (...args: any[]) => void) => void;
   'alert:play': (name: AlertType, ack: (...args: any[]) => void) => void;
   'alert:show': (message: string) => void;
@@ -34,4 +34,4 @@ export interface ProviderServerToClientEvents {
   'get-content-at': (index: number, ack: (rawContent: string[]) => void) => void;
   print: (message: string) => void;
 }
-export interface ProviderClientToServerEvents {}
+export interface ProviderClientToServerEvents { }

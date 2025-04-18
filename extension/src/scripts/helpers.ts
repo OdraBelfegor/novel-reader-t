@@ -21,9 +21,10 @@ export function matchUsableSites(url: string): boolean {
 }
 export async function getCurrentTab() {
   const [tab] = await chrome.tabs.query({
-    active: true,
+    // active: true,
     highlighted: true,
     windowType: 'normal',
+    lastFocusedWindow: true,
   });
   return tab;
 }

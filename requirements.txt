@@ -2,4 +2,4 @@ python-dotenv==1.0.1
 Flask==3.0.3
 soundfile==0.12.1
 #TTS==0.22.0
-kokoro==0.7.16
+kokoro>=0.8.4
