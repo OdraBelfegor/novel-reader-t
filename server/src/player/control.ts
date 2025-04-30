@@ -289,7 +289,7 @@ export class PlayerControl {
   async stopAudio(): Promise<void> {
     console.log(['Action stop audio']);
     // await this.audio.stop();
-    await Audio.stopAll();
+    await this.player?.stopAudio();
   }
 
   async audioEnded(reason: "ended" | 'stopped'): Promise<void> {

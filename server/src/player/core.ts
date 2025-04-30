@@ -28,7 +28,7 @@ export class Player {
   protected tts: TextToSpeech;
   public stopped: boolean;
 
-  protected _currentlyPlaying: Promise<void>;
+  protected _currentlyPlaying: Promise<void> = Promise.resolve();
 
   public eventEmitter = new EventEmitter<PlayerEvents>();
 
@@ -47,7 +47,6 @@ export class Player {
 
     this._content = new ContentControl(rawContent);
 
-    this._currentlyPlaying = Promise.resolve();
   }
 
   async run(): Promise<void> {
@@ -83,7 +82,7 @@ export class Player {
 
   public stopAudio() {
     // return this.audio.stop();
-    return Audio.stopAll();
+    return Audio.stopCurrent();
   }
 
   private async getAudio(sentence: SentenceServer): Promise<void> {

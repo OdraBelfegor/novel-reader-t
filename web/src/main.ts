@@ -66,24 +66,24 @@ socket.on('alert:show', message => {
   });
 });
 
-socket.on('audio:play', async (id, audio, ack) => {
+socket.on('audio:play', async (hash, audio, ack) => {
   // await audioEmitter.play(audio, type => {
   //   console.log('Audio ended', { type });
   //   if (socket.connected) socket.emit('audio:ended', type);
   // });
-  await audioController.play(id, audio, type => {
+  await audioController.play(hash, audio, type => {
     console.log('Audio ended', { type });
-    if (socket.connected) socket.emit('audio:ended', id, type);
+    if (socket.connected) socket.emit('audio:ended', hash, type);
   });
 
   ack();
 });
 
-socket.on('audio:stop', ack => {
+socket.on('audio:stop', (hash, ack) => {
   console.log('Audio ordered to stop');
   // audioEmitter.stop();
-  audioController.stopAll();
-  setTimeout(ack, 10);
+  audioController.stop(hash);
+  audioController.currentlyPlaying.then(() => ack());
 });
 
 socket.on('alert:play', (name, ack) => {

@@ -71,6 +71,8 @@ export class AudioController {
   _volume: number;
   _playbackRate: number;
 
+  currentlyPlaying: Promise<void> = Promise.resolve();
+
   constructor() {
     // @ts-expect-error
     this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -83,7 +85,7 @@ export class AudioController {
     this.gainNode.gain.value = this._volume;
   }
 
-  async play(id: string, audio: ArrayBuffer, onEnded: onAudioEnded) {
+  async play(hash: string, audio: ArrayBuffer, onEnded: onAudioEnded) {
     console.log('called play audio', typeof audio);
 
     const buffer = await this.audioContext.decodeAudioData(audio);
@@ -92,16 +94,22 @@ export class AudioController {
     source.connect(this.gainNode);
     source.playbackRate.value = this._playbackRate;
 
-    this.audios.set(id, { source, stopped: false });
+    this.audios.set(hash, { source, stopped: false });
+
+    let ended: () => void;
+
+    this.currentlyPlaying = new Promise(resolve => ended = resolve);
 
     source.onended = () => {
-      if (!this.audios.has(id)) return
+      if (!this.audios.has(hash)) return
 
-      const audio = this.audios.get(id) as AudioItem;
-      this.audios.delete(id);
+      const audio = this.audios.get(hash) as AudioItem;
+      this.audios.delete(hash);
 
       if (audio.stopped) onEnded('stopped');
       else onEnded('ended');
+
+      ended();
     };
 
     source.start();

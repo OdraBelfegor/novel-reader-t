@@ -19,8 +19,8 @@ export interface ClientToServerEvents {
 }
 
 export interface ServerToClientEvents {
-  'audio:play': (id: string, audio: ArrayBuffer, ack: (...args: any[]) => void) => void;
-  'audio:stop': (ack: (...args: any[]) => void) => void;
+  'audio:play': (hash: string, audio: ArrayBuffer, ack: (...args: any[]) => void) => void;
+  'audio:stop': (hash: string, ack: (...args: any[]) => void) => void;
   'alert:play': (name: AlertType, ack: (...args: any[]) => void) => void;
   'alert:show': (message: string) => void;
   'view:update-state': (state: PlayerState) => void;
