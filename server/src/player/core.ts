@@ -1,203 +1,506 @@
-import type { SentenceServer, TextProcessorResult } from '@common/types';
-import TextToSpeech from '../tts-use';
-import { ContentControl, Audio, type ReasonAudioEnd } from '.';
-import { EventEmitter } from 'events';
-import { waitAll } from '../extras';
+/**
+ * Player Core - Event-driven audio player with state machine
+ * 
+ * Key improvements:
+ * - Event-driven architecture for loose coupling
+ * - Cancellation support for all async operations
+ * - Proper cleanup and disposal
+ * - Better error handling with typed errors
+ */
 
-export type onEndedPlayer = (cause: 'stopped' | 'end:forward' | 'end:backward') => void;
+import { EventEmitter } from 'events';
+import type { SentenceServer } from '@common/types';
+import TextToSpeech from '../tts-use';
+import { ContentControl } from './content-control';
+import {
+  AudioManager,
+  type AudioEndReason,
+  getDefaultAudioManager
+} from './audio-manager';
+import { CancellationToken, CancellationTokenSource } from './cancellation';
+import {
+  PlayerError,
+  CancellationError,
+  AudioError,
+  type Result,
+  ok,
+  err,
+  tryAsync
+} from './errors';
+
+// ============================================================================
+// Types and Events
+// ============================================================================
+
+export type PlayerStateName = 'IDLE' | 'PLAYING' | 'PAUSED' | 'LOADING';
+export type EndedCause = 'stopped' | 'end:forward' | 'end:backward';
+
+// Legacy event types for compatibility
+export type onEndedPlayer = (cause: EndedCause) => void;
 export type onPlayPlayer = () => void;
 export type onActionPlayer = () => void;
 
-type PlayerEvents = {
-  ended: Parameters<onEndedPlayer>;
-  play: Parameters<onPlayPlayer>;
-  action: Parameters<onActionPlayer>;
-};
+// Legacy event map for the compatibility emitter
+interface LegacyPlayerEvents {
+  ended: [cause: EndedCause];
+  play: [];
+  action: [];
+}
 
-// States: playing, paused
-/**
- * TODO: Differentiate between actions and process, ways to stop process and delimit how much an action takes
- *   - Action: 'play', 'stop', 'pause', 'forward', 'backward', 'seek'
- *   - Process: 'play (sentence, download, reproduce audio)'
- */
+// ============================================================================
+// Audio Fetcher - Handles TTS with caching and prefetching
+// ============================================================================
 
-export class Player {
-  protected _content: ContentControl;
-  // protected _state: 'IDLE' | 'PLAYING' | 'PAUSED';
-  protected _state: PlayerState;
-  protected tts: TextToSpeech;
-  public stopped: boolean;
+class AudioFetcher {
+  private _pending = new Map<number, Promise<void>>();
+  private _disposed = false;
 
-  protected _currentlyPlaying: Promise<void> = Promise.resolve();
-
-  public eventEmitter = new EventEmitter<PlayerEvents>();
+  constructor(
+    private readonly tts: TextToSpeech,
+    private readonly content: ContentControl
+  ) { }
 
   /**
-   *
-   * @param rawContent  Content to be played
-   * @param audio Audio control
-   * @param tts Text-to-speech to use
+   * Fetch audio for a sentence with cancellation support
    */
-  constructor(rawContent: string[], tts: TextToSpeech) {
-    this.tts = tts;
+  async fetch(
+    sentence: SentenceServer,
+    cancellationToken?: CancellationToken
+  ): Promise<Result<ArrayBuffer | undefined>> {
+    if (this._disposed) {
+      return err(new PlayerError('AudioFetcher disposed', 'ALREADY_DISPOSED'));
+    }
 
-    this._state = new IdleState(this);
+    // Skip non-readable sentences or already cached
+    if (!sentence.isReadable || sentence.audio.buffer) {
+      return ok(sentence.audio.buffer);
+    }
 
-    this.stopped = false;
+    // Check if already fetching
+    const existing = this._pending.get(sentence.index);
+    if (existing) {
+      await existing;
+      return ok(sentence.audio.buffer);
+    }
 
+    // Create fetch promise
+    const fetchPromise = (async () => {
+      const result = await this.tts.getAudioSafe(sentence.sentence, {
+        cancellationToken,
+      });
+
+      if (result.success) {
+        sentence.audio.buffer = result.value;
+        console.log('Got audio for:', { index: sentence.index, sentence: sentence.sentence });
+      } else {
+        console.error('Failed to get audio:', result.error.message);
+      }
+
+      this._pending.delete(sentence.index);
+    })();
+
+    this._pending.set(sentence.index, fetchPromise);
+    await fetchPromise;
+
+    return ok(sentence.audio.buffer);
+  }
+
+  /**
+   * Prefetch audio for upcoming sentences
+   */
+  async prefetch(startIndex: number, count: number = 1): Promise<void> {
+    if (this._disposed) return;
+
+    const sentences = this.content.serverContent;
+
+    for (let i = 0; i < count; i++) {
+      const index = startIndex + 1 + i;
+      if (index >= sentences.length) break;
+
+      const sentence = sentences[index];
+      if (sentence.isReadable && !sentence.audio.buffer) {
+        // Fire and forget - don't wait for prefetch
+        this.fetch(sentence).catch(e =>
+          console.error('Prefetch error:', e)
+        );
+      }
+    }
+  }
+
+  /**
+   * Cancel all pending fetches
+   */
+  cancelAll(): void {
+    // Note: The actual cancellation happens via CancellationToken
+    // This just clears our tracking map
+    this._pending.clear();
+  }
+
+  dispose(): void {
+    this._disposed = true;
+    this.cancelAll();
+  }
+}
+
+// ============================================================================
+// Player - Main class
+// ============================================================================
+
+export class Player {
+  private readonly _content: ContentControl;
+  private readonly _tts: TextToSpeech;
+  private readonly _audioManager: AudioManager;
+  private readonly _fetcher: AudioFetcher;
+
+  private _state: PlayerStateName = 'IDLE';
+  private _disposed = false;
+
+  // Cancellation for current operation
+  private _operationCts = new CancellationTokenSource();
+
+  // Track current playback
+  private _currentPlayback: Promise<void> | null = null;
+
+  // Legacy compatibility - separate event emitter (untyped for flexibility)
+  public stopped = false;
+  public eventEmitter = new EventEmitter();
+
+  // Internal event emitter for new-style events
+  private _internalEmitter = new EventEmitter();
+
+  constructor(
+    rawContent: string[],
+    tts: TextToSpeech,
+    audioManager?: AudioManager
+  ) {
+    this._tts = tts;
     this._content = new ContentControl(rawContent);
-
+    this._audioManager = audioManager ?? getDefaultAudioManager();
+    this._fetcher = new AudioFetcher(tts, this._content);
   }
 
+  // ==========================================================================
+  // State Management
+  // ==========================================================================
+
+  private setState(newState: PlayerStateName): void {
+    if (this._state === newState) return;
+
+    const previousState = this._state;
+    this._state = newState;
+
+    console.log(`[Player] State: ${previousState} -> ${newState}`);
+    this._internalEmitter.emit('state:changed', newState, previousState);
+    this.eventEmitter.emit('action');
+  }
+
+  // ==========================================================================
+  // Public Actions
+  // ==========================================================================
+
+  /**
+   * Start or resume playback
+   */
   async run(): Promise<void> {
-    await this._state.run();
+    if (this._disposed || this.stopped) return;
+
+    if (this._state === 'PLAYING' || this._state === 'LOADING') {
+      return; // Already running
+    }
+
+    await this.playCurrentSentence();
   }
 
+  /**
+   * Toggle play/pause
+   */
   async play(): Promise<void> {
-    await this._state.play();
-    this.emit('action');
+    if (this._disposed) return;
+
+    switch (this._state) {
+      case 'IDLE':
+        await this.run();
+        break;
+      case 'PLAYING':
+      case 'LOADING':
+        await this.pause();
+        break;
+      case 'PAUSED':
+        await this.run();
+        break;
+    }
   }
 
+  /**
+   * Pause playback
+   */
+  async pause(): Promise<void> {
+    if (this._disposed) return;
+    if (this._state !== 'PLAYING' && this._state !== 'LOADING') return;
+
+    // Cancel current operation
+    this._operationCts.cancel();
+
+    // Stop audio
+    await this._audioManager.stopCurrent();
+
+    // Wait for current playback to finish
+    if (this._currentPlayback) {
+      await this._currentPlayback.catch(() => { });
+    }
+
+    this.setState('PAUSED');
+  }
+
+  /**
+   * Stop playback completely
+   */
   async stop(): Promise<void> {
-    await this._state.stop();
-    this.emit('ended', 'stopped');
+    if (this._disposed) return;
+
+    this.stopped = true;
+    this._operationCts.cancel();
+
+    await this._audioManager.stopCurrent();
+
+    if (this._currentPlayback) {
+      await this._currentPlayback.catch(() => { });
+    }
+
+    this.setState('IDLE');
+    this.eventEmitter.emit('ended', 'stopped');
   }
 
+  /**
+   * Go to previous sentence
+   */
   async backward(): Promise<void> {
-    await this._state.backward();
-    this.emit('action');
+    if (this._disposed) return;
+
+    const wasPlaying = this._state === 'PLAYING';
+
+    // Cancel current operation
+    this._operationCts.cancel();
+    await this._audioManager.stopCurrent();
+
+    if (this._currentPlayback) {
+      await this._currentPlayback.catch(() => { });
+    }
+
+    const ended = this._content.previous();
+
+    if (ended) {
+      this.setState('IDLE');
+      this.eventEmitter.emit('ended', 'end:backward');
+      return;
+    }
+
+    if (wasPlaying) {
+      await this.playCurrentSentence();
+    } else {
+      this.setState('IDLE');
+    }
   }
 
+  /**
+   * Go to next sentence
+   */
   async forward(): Promise<void> {
-    await this._state.forward();
-    this.emit('action');
+    if (this._disposed) return;
+
+    const wasPlaying = this._state === 'PLAYING';
+
+    // Cancel current operation
+    this._operationCts.cancel();
+    await this._audioManager.stopCurrent();
+
+    if (this._currentPlayback) {
+      await this._currentPlayback.catch(() => { });
+    }
+
+    const ended = this._content.next();
+
+    if (ended) {
+      this.setState('IDLE');
+      this.eventEmitter.emit('ended', 'end:forward');
+      return;
+    }
+
+    if (wasPlaying) {
+      await this.playCurrentSentence();
+    } else {
+      this.setState('IDLE');
+    }
   }
 
+  /**
+   * Seek to specific sentence by index
+   */
   async seek(index: number): Promise<void> {
+    if (this._disposed) return;
     if (index < 0 || index >= this._content.serverContent.length) return;
 
-    await this._state.seek(index);
-    this.emit('action');
+    const wasPlaying = this._state === 'PLAYING';
+
+    // Cancel current operation
+    this._operationCts.cancel();
+    await this._audioManager.stopCurrent();
+
+    if (this._currentPlayback) {
+      await this._currentPlayback.catch(() => { });
+    }
+
+    this._content.seek(index);
+
+    if (wasPlaying) {
+      await this.playCurrentSentence();
+    } else {
+      this.setState('IDLE');
+    }
   }
 
-  public stopAudio() {
-    // return this.audio.stop();
-    return Audio.stopCurrent();
+  /**
+   * Stop current audio (legacy compatibility)
+   */
+  async stopAudio(): Promise<void> {
+    await this._audioManager.stopCurrent();
   }
 
-  private async getAudio(sentence: SentenceServer): Promise<void> {
-    if (!sentence.isReadable || sentence.audio.buffer) return;
+  // ==========================================================================
+  // Internal Playback Logic
+  // ==========================================================================
 
-    const audio = await this.tts.getAudio(sentence.sentence).catch(error => {
-      console.log('Error getting audio:', error);
-      return undefined;
-    });
+  private async playCurrentSentence(): Promise<void> {
+    // Create new cancellation token for this operation
+    const token = this._operationCts.reset();
 
-    if (!audio) return;
-
-    sentence.audio.buffer = audio;
-    console.log('Got audio for:', [
-      {
-        index: sentence.index,
-        sentence: sentence.sentence,
-      },
-    ]);
-  }
-
-  private async getNextAudio(index: number): Promise<void> {
-    if (index + 1 >= this._content.serverContent.length) return;
-    await this.getAudio(this._content.serverContent[index + 1]);
-  }
-
-  public async playSentence(index: number): Promise<void> {
-    this.state = new PlayingState(this);
     const sentence = this._content.currentSentence;
+    const index = this._content.currentIndex;
 
+    // Skip non-readable sentences
     if (!sentence.isReadable) {
-      this.state = new IdleState(this);
+      this.setState('IDLE');
       const ended = this._content.next();
-      if (ended)
-        this.emit('ended', 'end:forward');
-      else
-        this._state.run();
 
+      if (ended) {
+        this.eventEmitter.emit('ended', 'end:forward');
+      } else if (!token.isCancelled) {
+        await this.playCurrentSentence();
+      }
       return;
     }
 
-    const currentAudio = this.getAudio(sentence);
-    const nextAudio = this.getNextAudio(index);
-    await currentAudio;
+    // Loading state while fetching
+    this.setState('LOADING');
 
-    if (this._state.name !== 'PLAYING') return;
+    // Fetch audio with cancellation support
+    const audioResult = await this._fetcher.fetch(sentence, token);
 
-    if (!sentence.audio) {
-      console.log('Cannot play sentence:', [sentence.sentence]);
-      // await this.audio.alert('ping');
-      await Audio.alert('ping');
-      this.state = new PausedState(this);
+    if (token.isCancelled) return;
+
+    if (!audioResult.success || !sentence.audio.buffer) {
+      console.error('Cannot play sentence:', sentence.sentence);
+      await this._audioManager.playAlert('ping');
+      this.setState('PAUSED');
       return;
     }
+
+    // Start prefetching next sentences
+    this._fetcher.prefetch(index, 2);
+
+    // Switch to playing state
+    this.setState('PLAYING');
+    this.eventEmitter.emit('play');
+    this._internalEmitter.emit('sentence:started', index, sentence);
 
     console.log('Playing sentence:', [sentence.sentence]);
 
-    this._currentlyPlaying = waitAll([
-      // this.audio.play(sentence.audio).then(this.handleAudioEnd.bind(this)),
-      sentence.audio.play().then(this.handleAudioEnd.bind(this)),
-      nextAudio,
-    ]);
+    // Create the playback promise
+    this._currentPlayback = this.performPlayback(sentence, index, token);
+    await this._currentPlayback;
   }
 
-  private async handleAudioEnd(reason: ReasonAudioEnd): Promise<void> {
+  private async performPlayback(
+    sentence: SentenceServer,
+    index: number,
+    token: CancellationToken
+  ): Promise<void> {
+    const buffer = sentence.audio.buffer;
+    if (!buffer) return;
+
+    const result = await this._audioManager.play(buffer, token);
+
+    if (token.isCancelled) return;
+
+    if (!result.success) {
+      this._internalEmitter.emit('error', result.error);
+      this.setState('PAUSED');
+      return;
+    }
+
+    const reason = result.value.reason;
     console.log('Audio ended:', { reason });
-    // if (this._state.name === 'PAUSED') return;
 
-    if (reason === 'disconnected' || reason === 'no-connection') {
-      this.state = new PausedState(this);
-      this.emit('action');
-      return
-    }
+    this._internalEmitter.emit('sentence:ended', index, reason);
 
-    this.state = new IdleState(this);
-
-    if (reason === 'ended') {
-      const ended = this._content.next();
-      console.log(['Ended:', ended]);
-
-      if (ended) {
-        console.log('All content played');
-        this.emit('ended', 'end:forward');
-        return;
-      }
-
-      await this._state.run();
+    // Handle end reason
+    switch (reason) {
+      case 'ended':
+        await this.handleSentenceEnded(token);
+        break;
+      case 'stopped':
+      case 'cancelled':
+        // User initiated - don't auto-advance
+        break;
+      case 'disconnected':
+      case 'no-connection':
+        this.setState('PAUSED');
+        break;
     }
   }
 
-  get currentlyPlaying() {
-    return this._currentlyPlaying;
+  private async handleSentenceEnded(token: CancellationToken): Promise<void> {
+    if (token.isCancelled) return;
 
+    const ended = this._content.next();
 
+    if (ended) {
+      console.log('All content played');
+      this.setState('IDLE');
+      this.eventEmitter.emit('ended', 'end:forward');
+      return;
+    }
+
+    // Continue to next sentence
+    if (!token.isCancelled) {
+      await this.playCurrentSentence();
+    }
   }
+
+  // ==========================================================================
+  // Getters
+  // ==========================================================================
 
   get state() {
-    return this._state;
+    // Return a compatible object for legacy code
+    return {
+      name: this._state,
+    };
   }
 
-  set state(state: PlayerState) {
-    console.log([`Set state: ${state.name}`]);
-    this._state = state;
-    // this.emit('action');
+  get currentlyPlaying(): Promise<void> {
+    return this._currentPlayback ?? Promise.resolve();
   }
 
-  get index() {
+  get index(): number {
     return this._content.currentIndex;
   }
 
-  set index(index: number) {
-    this._content.seek(index);
+  set index(value: number) {
+    this._content.seek(value);
   }
 
-  get content() {
+  get content(): ContentControl {
     return this._content;
   }
 
@@ -209,172 +512,82 @@ export class Player {
     return this._content.clientContent;
   }
 
-  get on() {
-    return this.eventEmitter.on.bind(this);
-  }
-
-  get emit() {
-    return this.eventEmitter.emit.bind(this);
-  }
-
-  getRawContent() {
+  getRawContent(): string[] {
     return this._content.rawContent;
   }
-}
 
-type PlayerStateName = 'PLAYING' | 'PAUSED' | 'IDLE';
-
-abstract class PlayerState {
-  constructor(protected player: Player) { }
-
-  abstract run(): Promise<void>;
-  abstract play(): Promise<void>;
-  abstract stop(): Promise<void>;
-  abstract backward(): Promise<void>;
-  abstract forward(): Promise<void>;
-  abstract seek(index: number): Promise<void>;
-  abstract get name(): PlayerStateName;
-}
-
-class IdleState extends PlayerState {
-  running: boolean;
-  constructor(player: Player) {
-    super(player);
-    this.running = false;
+  // Legacy event binding - use methods instead of getters to avoid conflicts
+  /**
+   * Register a legacy event listener
+   * @deprecated Use the new event system instead
+   */
+  on(event: 'ended', listener: (cause: EndedCause) => void): this;
+  on(event: 'play', listener: () => void): this;
+  on(event: 'action', listener: () => void): this;
+  on(event: string, listener: (...args: any[]) => void): this {
+    this.eventEmitter.on(event, listener);
+    return this;
   }
 
-  async run(): Promise<void> {
-    // TODO: Make possible to cancel fetch audio
-    if (this.running) return;
-    this.running = true;
-
-    if (this.player.stopped) {
-      console.log('Cannot play, already stopped');
-      return;
-    }
-
-    const index = this.player.index;
-
-    await this.player.playSentence(index);
-
-    this.player.emit('play');
+  /**
+   * Emit a legacy event
+   * @deprecated Use the new event system instead
+   */
+  emit(event: 'ended', cause: EndedCause): boolean;
+  emit(event: 'play'): boolean;
+  emit(event: 'action'): boolean;
+  emit(event: string, ...args: any[]): boolean {
+    return this.eventEmitter.emit(event, ...args);
   }
 
-  async play(): Promise<void> {
-    if (!this.running) return this.player.state.run();
-    this.player.state = new PausedState(this.player);
-  }
-  async stop(): Promise<void> {
-    this.player.stopped = true;
-  }
-  async backward(): Promise<void> {
-    // if(this.running) return;
-    const ended = this.player.content.previous();
-    if (ended) {
-      this.player.emit('ended', 'end:backward');
-      return;
-    }
-  }
-  async forward(): Promise<void> {
-    // if(this.running) return;
-    this.player.content.next();
-  }
-  async seek(index: number): Promise<void> {
-    // if(this.running) return;
-    this.player.index = index;
+  // New-style event methods
+  onStateChanged(listener: (state: PlayerStateName, previous: PlayerStateName) => void): this {
+    this._internalEmitter.on('state:changed', listener);
+    return this;
   }
 
-  get name(): PlayerStateName {
-    return 'IDLE';
-  }
-}
-
-class PlayingState extends PlayerState {
-  async run(): Promise<void> {
-    return;
-  }
-  async play(): Promise<void> {
-    // const stopAudio = this.player.stopAudio();
-    // this.player.state = new PausedState(this.player);
-    // await stopAudio;
-    await this.player.stopAudio();
-    await this.player.currentlyPlaying;
-    this.player.state = new PausedState(this.player);
-  }
-  async stop(): Promise<void> {
-    await this.player.stopAudio();
-    await this.player.currentlyPlaying;
-    console.log('Player stopped:', this.player.state.name);
-  }
-  async backward(): Promise<void> {
-    await this.player.stopAudio();
-    await this.player.currentlyPlaying;
-    const ended = this.player.content.previous();
-    if (ended) {
-      this.player.emit('ended', 'end:backward');
-    }
-    await this.player.state.run();
-  }
-  async forward(): Promise<void> {
-    await this.player.stopAudio();
-    await this.player.currentlyPlaying;
-    const ended = this.player.content.next();
-    if (ended) {
-      this.player.emit('ended', 'end:forward');
-      return;
-    }
-    await this.player.state.run();
-  }
-  async seek(index: number): Promise<void> {
-    await this.player.stopAudio();
-    this.player.index = index;
-    await this.player.currentlyPlaying;
-    await this.player.state.run();
+  onSentenceStarted(listener: (index: number, sentence: SentenceServer) => void): this {
+    this._internalEmitter.on('sentence:started', listener);
+    return this;
   }
 
-  get name(): PlayerStateName {
-    return 'PLAYING';
+  onSentenceEnded(listener: (index: number, reason: AudioEndReason) => void): this {
+    this._internalEmitter.on('sentence:ended', listener);
+    return this;
+  }
+
+  onError(listener: (error: PlayerError) => void): this {
+    this._internalEmitter.on('error', listener);
+    return this;
+  }
+
+  // ==========================================================================
+  // Disposal
+  // ==========================================================================
+
+  /**
+   * Dispose of the player and clean up all resources
+   */
+  dispose(): void {
+    if (this._disposed) return;
+
+    this._disposed = true;
+    this.stopped = true;
+
+    // Cancel all operations
+    this._operationCts.cancel();
+
+    // Clean up fetcher
+    this._fetcher.dispose();
+
+    // Clear event listeners
+    this._internalEmitter.removeAllListeners();
+    this.eventEmitter.removeAllListeners();
+
+    console.log('[Player] Disposed');
+  }
+
+  get isDisposed(): boolean {
+    return this._disposed;
   }
 }
-
-class PausedState extends PlayerState {
-  async run(): Promise<void> {
-    return;
-  }
-  async play(): Promise<void> {
-    this.player.state = new IdleState(this.player);
-    await this.player.state.run();
-  }
-  async stop(): Promise<void> {
-    this.player.stopped = true;
-    console.log('Player stopped:', this.player.state.name);
-  }
-  async backward(): Promise<void> {
-    this.player.state = new IdleState(this.player);
-    const ended = this.player.content.previous();
-    if (ended) {
-      this.player.emit('ended', 'end:backward');
-      return;
-    }
-    await this.player.state.run();
-  }
-  async forward(): Promise<void> {
-    this.player.state = new IdleState(this.player);
-    const ended = this.player.content.next();
-    if (ended) {
-      this.player.emit('ended', 'end:forward');
-      return;
-    }
-    await this.player.state.run();
-  }
-  async seek(index: number): Promise<void> {
-    this.player.state = new IdleState(this.player);
-    this.player.index = index;
-    await this.player.state.run();
-  }
-  get name(): PlayerStateName {
-    return 'PAUSED';
-  }
-}
-
-

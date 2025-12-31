@@ -3,7 +3,7 @@ import type { Audio } from "../server/src/player";
 export type AlertType = 'primary' | 'secondary' | 'ping';
 
 export interface PlayerState {
-  state: 'IDLE' | 'PLAYING' | 'PAUSED' | 'INACTIVE';
+  state: 'IDLE' | 'PLAYING' | 'PAUSED' | 'INACTIVE' | 'LOADING';
   loop: boolean;
   loopActive: boolean;
   loopLimit: number | null;

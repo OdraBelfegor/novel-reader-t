@@ -8,7 +8,8 @@
     "remove:build": "rm -rf dist",
     "start": "concurrently -n tts,main -c green,blue --kill-others \"npm run tts\" \"node dist/main.js\"",
     "start:dev": "node --env-file=../.env dist/main.js",
-    "dev": "node -r ts-node/register --env-file=../.env src/main.ts"
+    "dev": "node -r ts-node/register --env-file=../.env src/main.ts",
+    "ts-node": "ts-node"
   },
   "keywords": [],
   "author": "",

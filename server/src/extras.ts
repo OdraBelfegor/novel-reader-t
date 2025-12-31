@@ -43,6 +43,4 @@ export function validateCerts(): { result: boolean; certs: { key: string; cert: 
 
   return { result: true, certs: credentials };
 }
-export function waitAll(promises: Promise<any>[]): Promise<any> {
-  return Promise.all(promises);
-}
+

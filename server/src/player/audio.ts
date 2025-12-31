@@ -1,105 +1,131 @@
-import type { PlayerSocket, PlayerUsers } from '.';
-import { AlertType, EndType } from '@common/types';
-import { waitEventOrDisconnect } from '../extras';
-import { randomBytes } from 'crypto';
+/**
+ * Audio class - Represents an audio buffer that can be played
+ * 
+ * This is a simplified version that delegates playback to AudioManager.
+ * Maintains backward compatibility with existing code while using the new architecture.
+ */
 
-export type ReasonAudioEnd = 'ended' | 'stopped' | 'disconnected' | 'no-connection';
+import type { AlertType, EndType } from '@common/types';
+import type { PlayerUsers } from './users';
+import type { PlayerSocket } from './control';
+import { AudioManager, getDefaultAudioManager, type AudioEndReason } from './audio-manager';
 
+// Re-export for convenience
+export type ReasonAudioEnd = AudioEndReason;
+
+/**
+ * Audio class represents an audio buffer that can be played.
+ * Uses the AudioManager for actual playback coordination.
+ */
 export class Audio {
   public buffer?: ArrayBuffer;
-  hash?: string;
-  private _end: (reason: ReasonAudioEnd) => void;
+  public hash?: string;
 
+  // Static references for backwards compatibility during migration
   static playerSocket?: PlayerSocket;
-  static playerUsers?: PlayerUsers;
-  static audioList: Map<string, Audio> = new Map();
+  private static _playerUsers?: PlayerUsers;
+  private static _manager: AudioManager | null = null;
 
-  static currentAudio?: {
-    status: Promise<ReasonAudioEnd>;
-    audio: Audio;
-    socketid: string;
-  };
+  /**
+   * Get or create the default audio manager
+   */
+  private static getManager(): AudioManager {
+    if (!this._manager) {
+      this._manager = getDefaultAudioManager();
+    }
+    return this._manager;
+  }
 
+  /**
+   * Set player users on both static reference and manager
+   */
+  static get playerUsers(): PlayerUsers | undefined {
+    return this._playerUsers;
+  }
+
+  static set playerUsers(users: PlayerUsers | undefined) {
+    this._playerUsers = users;
+    if (users) {
+      this.getManager().setPlayerUsers(users);
+    }
+  }
+
+  /**
+   * Play this audio buffer
+   */
   async play(): Promise<ReasonAudioEnd> {
-    if (!Audio.playerUsers) throw new Error('No player users');
-
-    // Stop audio if it's already playing
-    if (Audio.currentAudio) {
-      await Promise.allSettled([Audio.currentAudio.audio.stop(), Audio.currentAudio.status]);
+    if (!this.buffer) {
+      throw new Error('No audio buffer');
     }
 
-    if (!this.buffer) throw new Error('No audio buffer');
+    const manager = Audio.getManager();
+    const result = await manager.play(this.buffer);
 
-    if (!this.hash) this.hash = randomBytes(16).toString('hex');
-
-    const playerSocket = Audio.playerUsers.getUserByIndex(0);
-    if (!playerSocket) return 'no-connection';
-
-    try {
-      await playerSocket.timeout(20000).emitWithAck('audio:play', this.hash, this.buffer);
-    } catch (error) {
+    if (!result.success) {
+      // Map error to legacy reason
+      const errorCode = result.error.code;
+      if (errorCode === 'NO_AUDIO_CONNECTION') return 'no-connection';
+      if (errorCode === 'SOCKET_DISCONNECTED') return 'disconnected';
       return 'no-connection';
     }
 
-    Audio.currentAudio = {
-      audio: this,
-      status: new Promise(resolve => {
-        this._end = resolve;
-      }),
-      socketid: playerSocket.id,
-    }
-
-    return Audio.currentAudio.status;
+    return result.value.reason;
   }
 
-  async stop() {
-    if (!Audio.currentAudio || !Audio.playerUsers || !this.hash) return;
-    const socket = Audio.playerUsers.getUserById(Audio.currentAudio.socketid);
-    if (!socket) return;
-    try {
-      await socket.timeout(20000).emitWithAck('audio:stop', this.hash);
-    } catch (error) {
-      console.log(['Error stopping audio:'], error);
-    }
+  /**
+   * Stop this audio if it's currently playing
+   */
+  async stop(): Promise<void> {
+    const manager = Audio.getManager();
+    await manager.stopCurrent();
   }
 
-  get end() {
-    return this._end;
+  // ==========================================================================
+  // Static methods for backward compatibility
+  // ==========================================================================
+
+  /**
+   * Handle audio ended event from client
+   */
+  static async audioEnded(hash: string, reason: EndType): Promise<void> {
+    this.getManager().handleAudioEnded(hash, reason);
   }
 
-  static async audioEnded(hash: string, reason: EndType) {
-    const currentAudio = Audio.currentAudio;
-    if (!currentAudio) return;
-    if (currentAudio.audio.hash !== hash) return;
-    currentAudio.audio.end(reason);
+  /**
+   * Handle user disconnection
+   */
+  static async userDisconnected(id: string): Promise<void> {
+    this.getManager().handleUserDisconnected(id);
   }
 
-  static async userDisconnected(id: string) {
-    const currentAudio = Audio.currentAudio;
-    if (!currentAudio) return;
-    if (currentAudio.socketid !== id) return;
-    currentAudio.audio.end('disconnected');
-  }
-
+  /**
+   * Play an alert sound
+   */
   static async alert(name: AlertType): Promise<void> {
-    let audioSocket = Audio.playerUsers?.getUserByIndex(0);
-    if (!audioSocket) return;
-
-    console.log(['Play alert:'], name);
-
-    try {
-      await audioSocket.timeout(20000).emitWithAck('alert:play', name);
-      console.log(['Alert played']);
-    } catch (error) {
-      console.log(['Error playing alert:'], error);
+    const result = await this.getManager().playAlert(name);
+    if (!result.success) {
+      console.error('Failed to play alert:', result.error.message);
     }
   }
 
-  static async stopCurrent() {
-    const currentAudio = Audio.currentAudio;
-    if (!currentAudio) return;
-    currentAudio.audio.stop();
-    await currentAudio.status
+  /**
+   * Stop currently playing audio
+   */
+  static async stopCurrent(): Promise<void> {
+    await this.getManager().stopCurrent();
+  }
+
+  /**
+   * Get the underlying AudioManager instance
+   */
+  static getAudioManager(): AudioManager {
+    return this.getManager();
+  }
+
+  /**
+   * Set a custom AudioManager instance
+   */
+  static setAudioManager(manager: AudioManager): void {
+    this._manager = manager;
   }
 }
-
