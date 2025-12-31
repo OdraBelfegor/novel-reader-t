@@ -7,6 +7,7 @@ import soundfile as sf
 from flask import Flask, request, jsonify, send_file
 from dotenv import load_dotenv
 import requests
+
 # from TTS.api import TTS
 from kokoro_ import synthetize
 
@@ -46,14 +47,7 @@ def notify_main_server():
 notify_main_server()
 
 
-def get_short_hash(text):
-    sha256_hash = hashlib.sha256()
-    sha256_hash.update(text.encode("utf-8"))
-    hash_hex = sha256_hash.hexdigest()
-    return hash_hex[:8]
-
-
-@app.route("/tts", methods=["POST", "GET"])
+@app.route("/", methods=["POST", "GET"])
 def process_tts():
     if request.method == "GET":
         text = request.args.get("text")

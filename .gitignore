@@ -13,5 +13,6 @@ ext-try
 output/*
 
 test_*.*
+tests
 
 tts/dependencies
