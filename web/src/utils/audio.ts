@@ -1,62 +1,6 @@
 import type { AlertType, onAudioEnded } from '@common/types';
 
-export class AudioEmitter {
-  protected audioContext?: AudioContext;
-  protected gainNode?: GainNode;
-  protected audioSourceNode?: AudioBufferSourceNode;
-  stopped: boolean = false;
-  protected volume?: number;
-  protected playbackRate?: number;
 
-  async play(id: string, audio: ArrayBuffer, onEnded: onAudioEnded) {
-    if (!this.audioContext || !this.gainNode) {
-      // @ts-ignore
-      this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      this.gainNode = this.audioContext.createGain();
-      this.gainNode.connect(this.audioContext.destination);
-    }
-
-    if (!this.volume || !this.playbackRate) {
-      this.volume = Number(localStorage.getItem('volumen') || '1');
-      this.playbackRate = Number(localStorage.getItem('playback') || '1');
-    }
-
-    if (this.audioSourceNode) this.audioSourceNode.stop();
-
-    const buffer = await this.audioContext?.decodeAudioData(audio);
-
-    this.audioSourceNode = this.audioContext.createBufferSource();
-    this.audioSourceNode.buffer = buffer;
-    this.audioSourceNode.connect(this.gainNode);
-
-    this.gainNode.gain.value = this.volume;
-    this.audioSourceNode.playbackRate.value = this.playbackRate;
-
-    this.audioSourceNode.onended = event => {
-      this.audioSourceNode = undefined;
-      onEnded(this.stopped ? 'stopped' : 'ended');
-    };
-
-    this.stopped = false;
-    this.audioSourceNode.start();
-  }
-
-  stop() {
-    if (!this.audioSourceNode) return;
-    this.stopped = true;
-    this.audioSourceNode.stop();
-  }
-
-  setVolume(volume: number) {
-    this.volume = volume;
-    if (this.gainNode) this.gainNode.gain.value = volume;
-  }
-
-  setPlaybackRate(rate: number) {
-    this.playbackRate = rate;
-    if (this.audioSourceNode) this.audioSourceNode.playbackRate.value = rate;
-  }
-}
 
 type AudioItem = {
   source: AudioBufferSourceNode;
@@ -85,10 +29,18 @@ export class AudioController {
     this.gainNode.gain.value = this._volume;
   }
 
-  async play(hash: string, audio: ArrayBuffer, onEnded: onAudioEnded) {
+  async play(hash: string, audio: ArrayBuffer, onEnded: onAudioEnded): Promise<void> {
     console.log('called play audio', typeof audio);
 
-    const buffer = await this.audioContext.decodeAudioData(audio);
+    let buffer: AudioBuffer;
+    try {
+      buffer = await this.audioContext.decodeAudioData(audio);
+    } catch (error) {
+      console.error('Failed to decode audio data:', error);
+      onEnded('stopped');
+      return;
+    }
+
     const source = this.audioContext.createBufferSource();
     source.buffer = buffer;
     source.connect(this.gainNode);
@@ -101,12 +53,12 @@ export class AudioController {
     this.currentlyPlaying = new Promise(resolve => ended = resolve);
 
     source.onended = () => {
-      if (!this.audios.has(hash)) return
+      if (!this.audios.has(hash)) return;
 
-      const audio = this.audios.get(hash) as AudioItem;
+      const audioItem = this.audios.get(hash) as AudioItem;
       this.audios.delete(hash);
 
-      if (audio.stopped) onEnded('stopped');
+      if (audioItem.stopped) onEnded('stopped');
       else onEnded('ended');
 
       ended();
@@ -130,14 +82,14 @@ export class AudioController {
   }
 
   set volume(volume: number) {
-    if (volume > 2 && volume <= 0) return;
+    if (volume > 2 || volume <= 0) return;
     localStorage.setItem('volumen', String(volume));
     this._volume = volume;
     this.gainNode.gain.value = volume;
   }
 
   set playbackRate(rate: number) {
-    if (rate > 2 && rate <= 0) return;
+    if (rate > 2 || rate <= 0) return;
     localStorage.setItem('playback', String(rate));
     this._playbackRate = rate;
     this.audios.forEach(audioItem => (audioItem.source.playbackRate.value = rate));
